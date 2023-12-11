@@ -1,0 +1,9 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-ubuntu-20.24
+    volumes:
+      - ./test:/opt/flashlight/test:ro
+      - ./src:/opt/flashlight/src:ro
+      - ./.xmake:/opt/flashlight/.xmake

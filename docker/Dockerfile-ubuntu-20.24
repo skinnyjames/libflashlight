@@ -1,0 +1,38 @@
+FROM ubuntu:23.10
+
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get update -y && apt install -y --no-install-recommends \
+  curl \
+  valgrind \
+  llvm \
+  clang \
+  git \
+  build-essential \
+  ca-certificates \
+  apt-transport-https \
+  software-properties-common \
+  autoconf \
+  autotools-dev \
+  automake \
+  libtool \
+  m4 \
+  gettext \
+  pkg-config \
+  xorg-dev \
+  cmake
+
+RUN add-apt-repository ppa:xmake-io/xmake
+RUN apt-get update -y && apt install -y xmake unzip
+
+RUN update-ca-certificates
+
+WORKDIR /opt/flashlight
+
+ADD xmake.lua xmake.lua
+
+RUN useradd --user-group --system --create-home --no-log-init flashlight
+RUN chown -Rf flashlight /opt/flashlight
+USER flashlight
+RUN mkdir .xmake
+RUN xmake f -m debug -k shared -y
+CMD ["xmake", "b", "leaks"]

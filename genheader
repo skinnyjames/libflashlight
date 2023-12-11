@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+cat src/vendor/cwalk.h src/lib.h src/node.h src/bytes.h src/chunk.h src/lookup.h src/index.h src/indexer.h src/indexers/text_indexer.h > src/flashlight.h

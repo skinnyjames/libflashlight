@@ -1,0 +1,9 @@
+bin/*
+.xmake/
+Makefile
+include/
+.flashlight/
+build/
+post_test.c
+post
+./**/*/.DS_Store 
