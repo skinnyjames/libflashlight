@@ -10,18 +10,17 @@
 */
 static void rand_string(char* str, size_t size)
 {
-    const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK...";
-    if (size) 
+  const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK...";
+  if (size) 
+  {
+    --size;
+    for (size_t n = 0; n < size; n++)
     {
-        --size;
-        for (size_t n = 0; n < size; n++)
-        {
-            int key = rand() % (int) (sizeof charset - 1);
-            str[n] = charset[key];
-        }
-        str[size] = '\0';
+      int key = rand() % (int) (sizeof charset - 1);
+      str[n] = charset[key];
     }
-    // return str;
+    str[size] = '\0';
+  }
 }
 
 coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thread)
@@ -94,9 +93,6 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
   }
 }
 
-/** 
-  Function is designed to run in each thread
-*/
 void* f_index_text_chunk(void* payload)
 {
   f_text_thread* tthread = (f_text_thread*) payload;
@@ -164,7 +160,6 @@ void* f_index_text_chunk(void* payload)
       chunks_finished++;
     }
 
-    // bleah.
     double prog = ((double) (chunks_finished) / ic->len);
     tthread->progress = prog;
   }

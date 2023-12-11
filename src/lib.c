@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
-#include "vendor/cwalk.c"
+#include "../vendor/cwalk.c"
 #include "node.c"
 #include "bytes.c"
 #include "chunk.c"

@@ -53,20 +53,20 @@ void f_lookup_mem_free(f_lookup_mem* lookup)
 
 FILE* fopen_mkdir(const char* path, const char* mode)
 {
-    char* p = strdup(path);
-    char* sep = strchr(p+1, '/');
-    while(sep != NULL)
+  char* p = strdup(path);
+  char* sep = strchr(p+1, '/');
+  while(sep != NULL)
+  {
+    *sep = '\0';
+    if (mkdir(p, 0755) && errno != EEXIST)
     {
-        *sep = '\0';
-        if (mkdir(p, 0755) && errno != EEXIST)
-        {
-            fprintf(stderr, "error while trying to create %s\n", p);
-        }
-        *sep = '/';
-        sep = strchr(sep+1, '/');
+      fprintf(stderr, "error while trying to create %s\n", p);
     }
-    free(p);
-    return fopen(path, mode);
+    *sep = '/';
+    sep = strchr(sep+1, '/');
+  }
+  free(p);
+  return fopen(path, mode);
 }
 
 int f_lookup_file_init(f_lookup_file** out, char* path)

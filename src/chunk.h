@@ -48,7 +48,20 @@ void f_chunk_free(f_chunk** chunk);
 void f_chunk_free_all(f_chunk* chunk);
 
 /**
-  Reverses an array of FChunk into a a single FChunk
+  Reverses an array of FChunk into a a single FChunk.
+  
+  In order to produce a concurrent linked list, each concurrent function 
+  needs to return a chunk.
+  A chunk contains a linked list with a reference to its tail.
+  when we have an array of chunks, we can then link the lists by the tail ref when flattening.
+
+  ```
+  [{ first: c -> b -> a, last: a }, { first: f -> e -> d, last: d }, {first: i -> h -> g, last: g }]
+
+  we want to combine these lists to produce the following chunk.
+
+  { first: i -> h -> g -> f -> e -> d -> c -> b -> a, last: a }
+  ```
   @param out the new FChunk
   @param idx the expected position of the new FChunk
   @param chunks the array to reduce
