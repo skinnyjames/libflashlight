@@ -183,6 +183,7 @@ TEST test_text_indexer(void)
     .threads = 2,
     .concurrency = 2,
     .buffer_size = 3,
+    .max_bytes_per_iteration = 50000,
     .on_progress = NULL
   };
 

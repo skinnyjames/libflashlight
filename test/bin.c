@@ -24,6 +24,7 @@ int main(void)
     .threads = 6,
     .concurrency = 50,
     .buffer_size = 50000,
+    .max_bytes_per_iteration = 10000000000,
     .on_progress = progress_cb
   };
 

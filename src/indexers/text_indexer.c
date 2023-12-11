@@ -214,7 +214,7 @@ f_index* f_index_text_file(f_indexer indexer)
   fseek(fp, 0, SEEK_SET);
 
   double reported_progress = 0.0;
-  size_t max_bytes_per_iteration = 10000000000;
+  size_t max_bytes_per_iteration = indexer.max_bytes_per_iteration;
   unsigned int thread_it_count = (unsigned int) ceil(total_bytes_count / (double) (max_bytes_per_iteration));
   if (thread_it_count == 0)
   {

@@ -904,6 +904,8 @@ typedef void (*indexer_progress_cb)(double progress, void* payload);
 * the number of concurrent calls to make in each thread
 * @var FIndexer::buffer_size
 * the buffer to use for each concurrent call
+* @var FIndexer::max_bytes_per_iteration
+* a hard limit on how many bytes to index at one time.
 * @var on_progress
 * a callback to track the progress of the indexing (NULL if unused)
 * @var payload
@@ -917,6 +919,7 @@ typedef struct FIndexer
   int threads;
   int concurrency;
   size_t buffer_size;
+  size_t max_bytes_per_iteration;
   indexer_progress_cb on_progress;
   void* payload;
 } f_indexer;
