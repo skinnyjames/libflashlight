@@ -19,7 +19,8 @@ RUN apt-get update -y && apt install -y --no-install-recommends \
   gettext \
   pkg-config \
   xorg-dev \
-  cmake
+  cmake \
+  libpcre2-dev
 
 RUN add-apt-repository ppa:xmake-io/xmake
 RUN apt-get update -y && apt install -y xmake unzip
@@ -35,4 +36,5 @@ RUN chown -Rf flashlight /opt/flashlight
 USER flashlight
 RUN mkdir .xmake
 RUN xmake f -m debug -k shared -y
+RUN valgrind --version
 CMD ["xmake", "b", "leaks"]
