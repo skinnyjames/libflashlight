@@ -70,10 +70,17 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
 
   fread(&end_bytes, sizeof(size_t), 1, index->flookup->fp);
 
+  if (start_bytes > end_bytes)
+  {
+    printf("something went wrong - (zo: %zu) start: %ld, count: %ld, (start_offset: %zu, end_offset %zu, count offset: %zu) %zu, %zu\n", zero_offset, start, count, start_offset, end_offset, count_offset, start_bytes, end_bytes);
+    return -1;
+  }
+
   size_t bytes = end_bytes - start_bytes;
   uint8_t* buffer = malloc(sizeof(*buffer) * bytes);
   if (buffer == NULL)
   {
+    perror("failed to allocate");
     return -1;
   }
 
@@ -88,6 +95,7 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
   bytes_read = pread(index->fd, buffer, bytes, start_bytes);
   if (bytes_read < 0)
   {
+    printf("invalid: %zu %zu\b", bytes, start_bytes);
     perror("sorry");
   }
 

@@ -7,4 +7,5 @@ services:
     volumes:
       - ./test:/opt/flashlight/test:ro
       - ./src:/opt/flashlight/src:ro
+      - ./vendor:/opt/flashlight/vendor:ro
       - ./.xmake:/opt/flashlight/.xmake

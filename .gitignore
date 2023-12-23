@@ -6,4 +6,6 @@ include/
 build/
 post_test.c
 post
-./**/*/.DS_Store 
+./**/*/.DS_Store
+.DS_Store
+test/zfixtures/one.csv

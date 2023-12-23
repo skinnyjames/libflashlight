@@ -69,6 +69,87 @@ int main(void)
 }
 
 ```
+### Searching against an index with regex
+
+Searching is possible using PCRE2 regex.
+
+Search results propogate to a callback when they are matched, and the calling code can 
+choose to store these how it wishes.
+
+An example using https://github.com/tidwall/btree.c
+
+```c
+#include <flashlight.h>
+#include <btree.c>
+
+void search_progress(double progress)
+{
+  printf("Search progress (%lf)\n", progress);
+}
+
+int search_result_compare(const void* a, const void* b, void* udata)
+{
+  f_search_result** sa = a;
+  f_search_result** sb = b;
+  return (*sa)->line_number > (*sb)->line_number ? 1 : -1;
+}
+
+void append_search_result(f_search_result* res, void* payload)
+{
+  struct btree* results = payload;
+  if (btree_set(results, &res) != NULL) exit(1);
+}
+
+int main(void)
+{
+  // seed rand so index filenames are random...
+  srand(time(0));
+
+  f_indexer i = {
+    .filename = "some/file/to/index.txt",
+    .lookup_dir = ".flashlight",
+    .threads = 6,
+    .concurrency = 50,
+    .buffer_size = 50000,
+    .max_bytes_per_iteration = 10000000000,
+    .on_progress = NULL,
+    .payload = NULL
+  };
+
+  f_index* index = f_index_text_file(i);
+
+  // Search against index
+  struct btree* results = btree_new(sizeof(f_search_result*), 0, search_result_compare, NULL);
+
+  f_searcher searcher = {
+    .regex = "^car",
+    .index = index,
+    .threads = 6,
+    .line_buffer = 1000,
+    .on_progress = search_progress,
+    .progress_payload = NULL,
+    .on_result = append_search_result,
+    .result_payload = results
+  };
+
+  if (f_index_search(searcher) != 0)
+  {
+    printf("search failed\n");
+  }
+
+  f_search_result** res;
+  while (res = btree_pop_min(results))
+  {
+    printf("[%zu] - %s\n", (*res)->line_number, (*res)->str);
+    f_search_result_free(*res);
+  }
+
+  btree_free(results);
+  f_index_free(&index);
+
+  return 0;
+}
+```
 
 ## Development
 
