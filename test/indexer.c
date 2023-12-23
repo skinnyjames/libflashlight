@@ -202,6 +202,52 @@ TEST test_text_indexer(void)
   PASS();
 }
 
+TEST test_index_sequential(void)
+{
+  char* test = "test/zfixtures/words.txt";
+  f_indexer i = {
+    .filename = test,
+    .lookup_dir = ".flashlight",
+    .threads = 2,
+    .concurrency = 5,
+    .buffer_size = 10,
+    .max_bytes_per_iteration = 100,
+    .on_progress = NULL
+  };
+
+  f_index* index = f_index_text_file(i);
+  size_t last_bytes_count = 0;
+  size_t previous_last_bytes_count = 0;
+
+  for (long int i = index->flookup->len - 1; i >= 0; i--)
+  {
+    if (i % 2 == 0) previous_last_bytes_count = last_bytes_count;
+
+    size_t bytes_offset = i * sizeof(size_t);
+    size_t bytes_count;
+    if (fseek(index->flookup->fp, bytes_offset, SEEK_SET))
+    {
+      perror("can't seek");
+      f_index_free(&index);
+      FAIL();
+    }
+
+    size_t bread = fread(&bytes_count, sizeof(size_t), 1, index->flookup->fp);
+    // printf("bread: %zu, bc: %zu, lbc: %zu, null? %d\n", bread, bytes_count, last_bytes_count, last_bytes_count == NULL);
+    if (last_bytes_count != NULL && bytes_count < last_bytes_count)
+    {
+      printf("[%ld] bad: %zu %zu - prev: %zu\n", i, bytes_count, last_bytes_count, previous_last_bytes_count);
+      f_index_free(&index);
+      FAIL();
+    }
+
+    if (bread > 0) last_bytes_count = bytes_count;
+  }
+
+  f_index_free(&index);
+  PASS();
+}
+
 SUITE(f_indexer_suite)
 {
   RUN_TEST(test_indexer_threads);
@@ -214,4 +260,5 @@ SUITE(f_indexer_suite)
   RUN_TEST(testy);
 
   RUN_TEST(test_text_indexer);
+  RUN_TEST(test_index_sequential);
 }

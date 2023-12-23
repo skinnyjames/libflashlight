@@ -35,7 +35,7 @@ int f_indexer_chunks_init(f_indexer_chunks** out, int concurrency, size_t buffer
 
   for(int cc=0; cc<chunks_count; cc++)
   {
-    unsigned int start_position = from + (cc * buffer_size);
+    size_t start_position = from + (cc * buffer_size);
 
     if (start_position + buffer_size > bytes_count + from)
     {
@@ -71,6 +71,14 @@ void f_indexer_chunks_free(f_indexer_chunks* index)
   free(index->chunks);
   free(index);
   index = NULL;
+}
+
+void debug_indexer_thread(f_indexer_thread* it, int i)
+{
+  printf("Indexer threads: %d\n", i);
+  printf("from: %zu, to %zu\n", it->from, it->to);
+  printf("total bytes count: %zu\n", it->total_bytes_count);
+  printf("buffer: %zu\n", it->buffer_size);
 }
 
 int f_indexer_threads_init(f_indexer_threads** out, int threads, size_t total_bytes_count, size_t buffer_size, size_t offset)
@@ -126,6 +134,7 @@ int f_indexer_threads_init(f_indexer_threads** out, int threads, size_t total_by
       .buffer_size = buffer_size,
     };
 
+    // debug_indexer_thread(&index, i);
     init->threads[i] = index;
   }
 

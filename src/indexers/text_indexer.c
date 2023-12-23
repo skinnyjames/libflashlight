@@ -101,7 +101,6 @@ void* f_index_text_chunk(void* payload)
 
   f_indexer_chunks* ic;
   f_indexer_chunks_init(&ic, tthread->concurrency, tthread->buffer_size, tthread->total_bytes_count, tthread->from, tthread->to);
-  // printf("[%d] total bytes: %zu, from: %zu, to: %zu, len: %u\n", tthread->thread, tthread->total_bytes_count, tthread->from, tthread->to, ic->len);
 
   f_chunk** chunk_array;
   f_chunk_array_new(&chunk_array, ic->len);
@@ -210,13 +209,11 @@ f_index* f_index_text_file(f_indexer indexer)
 
   double reported_progress = 0.0;
   size_t max_bytes_per_iteration = indexer.max_bytes_per_iteration;
-  unsigned int thread_it_count = (unsigned int) ceil(total_bytes_count / (double) (max_bytes_per_iteration));
+  unsigned int thread_it_count = (unsigned int) ceil((double) total_bytes_count / (double) (max_bytes_per_iteration));
   if (thread_it_count == 0)
   {
     thread_it_count = 1;
   }
-
-  max_bytes_per_iteration--;
 
   f_lookup_file* lookup = NULL;
   size_t index_filename_len = 12 + strlen(indexer.lookup_dir);
@@ -228,11 +225,6 @@ f_index* f_index_text_file(f_indexer indexer)
   for (int itc=thread_it_count - 1; itc>=0; itc--)
   {
     unsigned long int thread_it_start = itc * max_bytes_per_iteration;
-
-    if (thread_it_start != 0)
-    {
-      thread_it_start++;
-    }
 
     if (thread_it_start + max_bytes_per_iteration > total_bytes_count)
     {
@@ -270,7 +262,7 @@ f_index* f_index_text_file(f_indexer indexer)
       tthread->thread = i;
       tthread->progress = (double) 0.0;
 
-      // printf("[%d] total bytes: %zu, from: %zu, to: %zu\n\n", i, max_bytes_per_iteration, tthread->from, tthread->to);
+      // printf("[%d] total bytes: %zu, %zu - from: %zu, to: %zu\n\n", i, total_bytes_count, max_bytes_per_iteration, tthread->from, tthread->to);
 
       tthreads[i] = tthread;
       pthread_create(&thread_ids[i], NULL, f_index_text_chunk, tthreads[i]);
