@@ -111,40 +111,45 @@ void* f_index_search_thread(void* payload)
   PCRE2_SIZE* ovector;  
   int rc;
 
-  for (unsigned int i=config->start; i<config->count + config->start; i+=config->buffer)
+  for (size_t i=config->start; i<config->count + config->start; i+=config->buffer)
   {
     char* lookup;
     int lookup_len;
-    
-    unsigned int buffer = config->buffer;
+
+    size_t buffer = config->buffer;
     if (i + buffer > config->count + config->start) {
-      buffer = (config->count + config->start - i + 1);
+      buffer = (config->count + config->start - i - 1);
     }
 
-    // printf("reading %d buffer at %u - %u\n", buffer, i, config->start);
     pthread_mutex_lock(&search_mutex);
 
     if (f_index_lookup(&lookup, index, i, buffer, &lookup_len) != 0)
     {
-      printf("lookup failed\n");
+      printf("lookup failed to start: %u buffer: %u\n", i, buffer);
+      config->progress = (double) 1.0f;
+      pthread_mutex_unlock(&search_mutex);
+      return NULL;
     }
     pthread_mutex_unlock(&search_mutex);
 
     /*
       we have 100 lines from disk, so we need to split them up.
     */
-    unsigned int line_number = i;
+    size_t line_number = i;
     char* line;
     char* lookupcpy = lookup;
+    double p = 0.0f;
 
     while (line = tokenize(&lookupcpy, "\n"))
     {
+      p++;
       line_number++;
+      // printf("line: %zu %zu %zu\n", line_number, config->start, config->start + config->count);
 
       if (strlen(line) == 0)
       {
         free(line);
-        config->progress = (double) line_number / (config->start + (config->count - 1));
+        if (p < buffer) config->progress = (double) p / buffer;
         continue;
       }
 
@@ -172,8 +177,7 @@ void* f_index_search_thread(void* payload)
       {
         if (rc == PCRE2_ERROR_NOMATCH) {
           free(line);
-          config->progress = (double) line_number / (config->start + (config->count - 1));
-          // printf("progress internal %lf, %u\n", config->progress, line_number);
+          config->progress = (double) p / buffer;
           continue;
         }
 
@@ -183,8 +187,6 @@ void* f_index_search_thread(void* payload)
         res->line_number = line_number;
         res->str = line;
         res->matches_len = rc;
-
-        // printf("line match: %u - %s\n", line_number, line);
 
         for (int m = 0; m < rc; m++)
         {
@@ -196,11 +198,19 @@ void* f_index_search_thread(void* payload)
         if (config->on_result != NULL)
         {
           pthread_mutex_lock(&search_mutex);
+          if (*config->result_count >= config->result_limit) 
+          {
+            config->progress = (double) 1.0f;
+            pthread_mutex_unlock(&search_mutex);
+            return NULL;
+          }
+
+          *config->result_count += 1;
           config->on_result(res, config->result_payload);
           pthread_mutex_unlock(&search_mutex);
         }
         
-        config->progress = (double) line_number / (config->start + (config->count - 1));
+        config->progress = (double) p / buffer;
       }
     }
 
@@ -231,7 +241,7 @@ int f_search_compile_term(pcre2_code** re, PCRE2_SPTR pattern)
     NULL
   );
 
-  if (re == NULL)
+  if (re == NULL || error_number != 100)
   {
     PCRE2_UCHAR buffer[256];
     pcre2_get_error_message(error_number, buffer, sizeof(buffer));
@@ -273,10 +283,12 @@ int f_index_search(f_searcher config)
   pthread_t* thread_ids = malloc(sizeof(pthread_t) * threads);
 
   long int lines_per_thread = (long int) ceil(total_lines / threads);
+  int* result_count = malloc(sizeof(*result_count));
+  *result_count = 0;
 
   for (int i=0; i<threads; i++)
   {
-    unsigned long int start_position = i * lines_per_thread;
+    size_t start_position = i * lines_per_thread;
     
     if (start_position + lines_per_thread > total_lines)
     {
@@ -288,6 +300,7 @@ int f_index_search(f_searcher config)
     /*
       allocate search results buffer.
     */
+    searcher_thread->thread = i;
     searcher_thread->start = start_position;
     searcher_thread->count = lines_per_thread;
     searcher_thread->buffer = config.line_buffer;
@@ -296,6 +309,8 @@ int f_index_search(f_searcher config)
     searcher_thread->index = index;
     searcher_thread->on_result = config.on_result;
     searcher_thread->result_payload = config.result_payload;
+    searcher_thread->result_limit = config.result_limit;
+    searcher_thread->result_count = result_count;
     searcher_threads[i] = searcher_thread;
 
     pthread_create(&thread_ids[i], NULL, f_index_search_thread, searcher_threads[i]);
@@ -306,28 +321,24 @@ int f_index_search(f_searcher config)
   for (int i=0; i<threads; i++)
   {
     bool next = false;
-
     // block i thread join until i thread progress is 1.
     // report progress and any new results in the meantime.
     while (!next)
     {
-      next = searcher_threads[i]->progress >= 1;
-      double progress = 0.0;
-
       // if i progresses reached 1, go to next block
+      next = searcher_threads[i]->progress >= 1;
+      double progress = 0.0f;
+
       for (int p=0; p<threads; p++)
       {
-        progress += (searcher_threads[p]->progress / threads);
+        progress += searcher_threads[p]->progress / (double) threads;
       }
-      
+
       if (config.on_progress != NULL)
       {
-        report = progress / (double) (threads);
-        config.on_progress(report + reported_progress, &config.progress_payload);
+        config.on_progress(progress, &config.progress_payload);
       }
     }
-
-    reported_progress += report;
 
     // join next thread.
     if (pthread_join(thread_ids[i], NULL) != 0)
@@ -335,12 +346,16 @@ int f_index_search(f_searcher config)
       perror("can't join pthread");
       exit(1);
     }
-    
+  }
+
+  for (int i=0; i<threads; i++)
+  {
     free(searcher_threads[i]);
   }
 
   free(searcher_threads);
   free(thread_ids);
+  free(result_count);
   pcre2_code_free(re);
   pthread_mutex_destroy(&search_mutex);
   return 0;

@@ -58,6 +58,8 @@ typedef void (*searcher_cb)(f_search_result* result, void* payload);
 * The index to search against
 * @var FSearcher::threads
 * How many threads to use while searching
+* @var FSearcher::result_limit
+* The maximum number of results returned
 * @var FSearcher::line_buffer
 * How many lines to read from disk on a search iteration
 * @var FSearcher::on_progress
@@ -73,6 +75,7 @@ typedef struct FSearcher {
   char* regex;
   f_index* index;
   int threads;
+  int result_limit;
   unsigned int line_buffer;
   searcher_progress_cb on_progress;
   void* progress_payload;
@@ -94,6 +97,10 @@ typedef struct FSearcher {
 * How many lines to search
 * @var FSearcherThread::buffer
 * How many lines to read from disk at a time
+* @var FSearcherThread::result_limit
+* The max number of results
+* @var FSearcherThread::result_count
+* The current number of results
 * @var FSearcherThread::progress
 * This threads progress
 * @var FSearcherThread::on_result
@@ -104,9 +111,12 @@ typedef struct FSearcher {
 typedef struct FSearcherThread {
   pcre2_code* regex;
   f_index* index;
-  unsigned int start;
-  unsigned int count;
-  unsigned int buffer;
+  int thread;
+  size_t start;
+  size_t count;
+  size_t buffer;
+  int result_limit;
+  int* result_count;
   double progress;
   searcher_cb on_result;
   void* result_payload;

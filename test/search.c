@@ -11,7 +11,7 @@ void test_f_search_result(f_search_result* res, void* payload)
 
 int test_search_progress(double progress)
 {
-  //printf("progress: %lf\n", progress);
+  // printf("progress: %lf\n", progress);
 }
 
 int test_search_result_compare(const void* a, const void* b, void* udata)
@@ -48,6 +48,7 @@ TEST test_f_search_invalid_regex(void)
     .regex = "car(s",
     .index = index,
     .threads = 2,
+    .result_limit = 3,
     .line_buffer = 400u,
     .on_progress = test_search_progress,
     .progress_payload = NULL,
@@ -59,6 +60,7 @@ TEST test_f_search_invalid_regex(void)
   ASSERT_EQ_FMT(-2, rc, "%d");
 
   btree_free(results);
+  f_index_free(&index);
   PASS();
 }
 
@@ -84,6 +86,7 @@ TEST test_f_search(void)
     .regex = "cars",
     .index = index,
     .threads = 2,
+    .result_limit = 3,
     .line_buffer = 400u,
     .on_progress = test_search_progress,
     .progress_payload = NULL,
@@ -138,11 +141,12 @@ TEST test_f_search(void)
     f_search_result_free(res);
     idx++;
   }
-
+  f_index_free(&index);
   PASS();
 }
 
 SUITE(f_search_suite)
 {
+  RUN_TEST(test_f_search_invalid_regex);
   RUN_TEST(test_f_search);
 }

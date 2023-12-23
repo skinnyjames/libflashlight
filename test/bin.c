@@ -63,6 +63,7 @@ int main(void)
     .index = index,
     .threads = 6,
     .line_buffer = 1000,
+    .result_limit = 20,
     .on_progress = search_progress,
     .progress_payload = NULL,
     .on_result = append_search_result,
