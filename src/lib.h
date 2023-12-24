@@ -12,5 +12,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <stdarg.h>
 
 #endif

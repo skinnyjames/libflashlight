@@ -72,7 +72,7 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
 
   if (start_bytes > end_bytes)
   {
-    printf("something went wrong - (zo: %zu) start: %ld, count: %ld, (start_offset: %zu, end_offset %zu, count offset: %zu) %zu, %zu\n", zero_offset, start, count, start_offset, end_offset, count_offset, start_bytes, end_bytes);
+    f_log(F_LOG_ERROR, "something went wrong - (zo: %zu) start: %ld, count: %ld, (start_offset: %zu, end_offset %zu, count offset: %zu) %zu, %zu", zero_offset, start, count, start_offset, end_offset, count_offset, start_bytes, end_bytes);
     return -1;
   }
 

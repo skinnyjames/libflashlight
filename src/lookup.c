@@ -117,10 +117,17 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
   f_bytes_node* current = chunk->first;
   unsigned int len = chunk->line_count;
   unsigned int i = len;
+  size_t loff = 0ul;
 
   while (current != NULL)
   { 
+    if (loff != 0 && loff < current->bytes->offset)
+    {
+      f_log(F_LOG_WARN, "failed offset: %zu is less than %zu", loff, current->bytes->offset);
+    }
+
     f_lookup_file_append(init, current->bytes->offset);
+    loff = current->bytes->offset;
     i--;
 
     f_bytes_node* tmp = current;

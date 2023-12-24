@@ -12,6 +12,9 @@ GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
 {
+  // f_logger_set_name("test");
+  f_logger_set_level(F_LOG_ERROR | F_LOG_WARN | F_LOG_INFO | F_LOG_DEBUG);
+
   srand(time(0));
 
   GREATEST_MAIN_BEGIN();

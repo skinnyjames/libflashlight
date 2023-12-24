@@ -134,7 +134,7 @@ int f_indexer_threads_init(f_indexer_threads** out, int threads, size_t total_by
       .buffer_size = buffer_size,
     };
 
-    // debug_indexer_thread(&index, i);
+    // if (offset == 0) debug_indexer_thread(&index, i);
     init->threads[i] = index;
   }
 

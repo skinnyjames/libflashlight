@@ -28,7 +28,7 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
   size_t buffer_size = ic->count;
   size_t total_bytes_offset = ic->from;
 
-  // printf("count: %zu - [%u] from: %zu to: %zu\n", ic->count, ic->index, ic->from, ic->from + ic->count);
+  // f_log(F_LOG_DEBUG, "count: %zu - [%u] from: %zu to: %zu\n", ic->count, ic->index, ic->from, ic->from + ic->count);
 
   uint8_t* buffer = malloc(sizeof(*buffer) * buffer_size);
 
@@ -130,7 +130,7 @@ void* f_index_text_chunk(void* payload)
 
       f_indexer_chunk* chunk = ic->chunks[index];
 
-      // printf("[%d] [%lu] [cc: %d] [buf: %zu] chunk start %u [total: %zu]\n", tthread->thread, index, c, chunk->count, chunk->from, chunk->from + chunk->count);
+      f_log(F_LOG_DEBUG, "[%d] [%lu] [cc: %d] [buf: %zu] chunk start %u [total: %zu]", tthread->thread, index, c, chunk->count, chunk->from, chunk->from + chunk->count);
 
       if (bundle_go(b, f_index_text_bytes(tthread->fd, send, chunk, tthread->thread)) == -1)
       {
@@ -262,7 +262,8 @@ f_index* f_index_text_file(f_indexer indexer)
       tthread->thread = i;
       tthread->progress = (double) 0.0;
 
-      // printf("[%d] total bytes: %zu, %zu - from: %zu, to: %zu\n\n", i, total_bytes_count, max_bytes_per_iteration, tthread->from, tthread->to);
+      f_log(F_LOG_INFO, "[iteration %d] Starting thread %d", itc, i);
+      f_log(F_LOG_DEBUG, "[%d] total bytes: %zu, %zu - from: %zu, to: %zu", i, total_bytes_count, max_bytes_per_iteration, tthread->from, tthread->to);
 
       tthreads[i] = tthread;
       pthread_create(&thread_ids[i], NULL, f_index_text_chunk, tthreads[i]);
