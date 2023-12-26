@@ -80,6 +80,8 @@ int f_lookup_file_init(f_lookup_file** out, char* path)
   }
 
   int fd = fileno(fp);
+  int flags = fcntl(fd, F_GETFL, 0);
+  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
   init->path = path;
   init->fd = fd;
   init->fp = fp;
@@ -91,6 +93,7 @@ int f_lookup_file_init(f_lookup_file** out, char* path)
 
 int f_lookup_file_append(f_lookup_file* db, size_t offset)
 {
+  // f_log(F_LOG_FINE, "writing offset, %zu %zu", offset, sizeof(size_t));
   int rc = fwrite(&offset, sizeof(size_t), 1, db->fp);
   if (rc < 1)
   {
@@ -117,17 +120,19 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
   f_bytes_node* current = chunk->first;
   unsigned int len = chunk->line_count;
   unsigned int i = len;
-  size_t loff = 0ul;
+  // size_t loff = 0ul;
 
+  f_log(F_LOG_INFO, "starting write to file");
   while (current != NULL)
   { 
-    if (loff != 0 && loff < current->bytes->offset)
-    {
-      f_log(F_LOG_WARN, "failed offset: %zu is less than %zu", loff, current->bytes->offset);
-    }
+    // if (loff != 0 && loff < current->bytes->offset)
+    // {
+    //   f_log(F_LOG_WARN, "failed offset: %zu is less than %zu", loff, current->bytes->offset);
+    //   exit(1);
+    // }
 
     f_lookup_file_append(init, current->bytes->offset);
-    loff = current->bytes->offset;
+    // loff = current->bytes->offset;
     i--;
 
     f_bytes_node* tmp = current;
@@ -151,6 +156,8 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
   {
     perror("didn't flush");
   }
+  
+  f_log(F_LOG_INFO, "finished write to file");
 
   free(chunk);
   *out = init;

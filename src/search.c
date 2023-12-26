@@ -46,7 +46,7 @@ int f_search_results_init(f_search_results** out)
 
 void f_search_results_prepend(f_search_results** results, f_search_result* addition)
 {    
-  f_search_result* head = (*results)->result;
+  f_search_results* head = *results;
 
   if (head == NULL)
   {
@@ -121,16 +121,25 @@ void* f_index_search_thread(void* payload)
       buffer = (config->count + config->start - i - 1);
     }
 
-    pthread_mutex_lock(&search_mutex);
+    // pthread_mutex_lock(&search_mutex);
 
+    // f_log(F_LOG_DEBUG, "start lookup at %zu %zu", i, buffer);
     if (f_index_lookup(&lookup, index, i, buffer, &lookup_len) != 0)
     {
-      printf("lookup failed to start: %u buffer: %u\n", i, buffer);
+      f_log(F_LOG_ERROR, "lookup failed to start: %zu buffer: %zu", i, buffer);
       config->progress = (double) 1.0f;
-      pthread_mutex_unlock(&search_mutex);
+      // pthread_mutex_unlock(&search_mutex);
       return NULL;
     }
-    pthread_mutex_unlock(&search_mutex);
+    // pthread_mutex_unlock(&search_mutex);
+    // f_log(F_LOG_DEBUG, "end lookup at %zu %zu", i, buffer);
+
+    if (lookup == NULL)
+    {
+      f_log(F_LOG_WARN, "lookup is NULL");
+      config->progress = (double) 1.0f;
+      return NULL;
+    }
 
     /*
       we have 100 lines from disk, so we need to split them up.
@@ -140,7 +149,7 @@ void* f_index_search_thread(void* payload)
     char* lookupcpy = lookup;
     double p = 0.0f;
 
-    while (line = tokenize(&lookupcpy, "\n"))
+    while ((line = tokenize(&lookupcpy, "\n")))
     {
       p++;
       line_number++;
@@ -206,7 +215,9 @@ void* f_index_search_thread(void* payload)
           }
 
           *config->result_count += 1;
+          f_log(F_LOG_DEBUG, "calling on result");
           config->on_result(res, config->result_payload);
+          f_log(F_LOG_DEBUG, "on result finished");
           pthread_mutex_unlock(&search_mutex);
         }
         

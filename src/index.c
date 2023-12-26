@@ -38,15 +38,28 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
 
 int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int count, int* size)
 {
-  size_t start_bytes;
-  size_t end_bytes;
+  if (start > index->flookup->len - 1)
+  {
+    f_log(F_LOG_WARN, "start %u is greater than max %u", start, index->flookup->len - 1);
+    *out = NULL;
+    *size = 0;
+    return 0;
+  }
+  else if (start + count > index->flookup->len - 1)
+  {
+    unsigned int newcount = index->flookup->len - 1 - start;
+    f_log(F_LOG_WARN, "truncating lookup len [%u %u] -> [%u %u]", start, count, start, newcount);
+    count = newcount;
+  }
 
   size_t zero_offset = ((index->flookup->len - 1) * sizeof(size_t));
   size_t start_offset = (zero_offset - (start * sizeof(size_t)));
   size_t count_offset = (count * sizeof(size_t));
   size_t end_offset;
+
   if ((long) start_offset - (long) count_offset <= 0)
   {
+    f_log(F_LOG_INFO, "soff - coff is less than 0");
     end_offset = 0ul;
   }
   else
@@ -54,29 +67,47 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
     end_offset = start_offset - count_offset;
   }
 
-  if (fseek(index->flookup->fp, start_offset, SEEK_SET) != 0)
+  f_log(F_LOG_FINE, "size of zero offset: %zu %zu", zero_offset, sizeof(size_t));
+
+  size_t buffer_size = sizeof(size_t);
+  size_t* start_bytes = malloc(sizeof(*start_bytes) * buffer_size);
+  size_t* end_bytes = malloc(sizeof(*end_bytes) * buffer_size);
+
+  if (pread(index->flookup->fd, start_bytes, buffer_size, start_offset) < 0)
   {
-    perror("faailed to seek");
+    perror("read failed");
+    f_log(F_LOG_ERROR, "index read at %u returned 0 bytes", start);
+    *out = NULL;
+    *size = 0;
+    
+    free(start_bytes);
+    free(end_bytes);
+    return 0;
+  }
+
+  if (pread(index->flookup->fd, end_bytes, buffer_size, end_offset) < 0)
+  {
+    perror("read failed");
+    f_log(F_LOG_ERROR, "index read at %u returned 0 bytes", start);
+    *out = NULL;
+    *size = 0;
+    
+    free(start_bytes);
+    free(end_bytes);
+    return 0;
+  }
+
+  f_log(F_LOG_DEBUG, "len: %zu, (%u + %u) indexed from offsets %zu, %zu - starting at %zu, ending at %zu", index->flookup->len, start, count, start_offset, end_offset, *start_bytes, *end_bytes);
+
+  if (*start_bytes > *end_bytes)
+  {
+    f_log(F_LOG_ERROR, "something went wrong - (zo: %zu) start: %ld, count: %ld, (start_offset: %zu, end_offset %zu, count offset: %zu) %zu, %zu", zero_offset, start, count, start_offset, end_offset, count_offset, *start_bytes, *end_bytes);
     return -1;
   }
 
-  fread(&start_bytes, sizeof(size_t), 1, index->flookup->fp);
+  size_t bytes = *end_bytes - *start_bytes;
 
-  if (fseek(index->flookup->fp, end_offset, SEEK_SET) != 0)
-  {
-    perror("faailed to seek");
-    return -1;
-  }
-
-  fread(&end_bytes, sizeof(size_t), 1, index->flookup->fp);
-
-  if (start_bytes > end_bytes)
-  {
-    f_log(F_LOG_ERROR, "something went wrong - (zo: %zu) start: %ld, count: %ld, (start_offset: %zu, end_offset %zu, count offset: %zu) %zu, %zu", zero_offset, start, count, start_offset, end_offset, count_offset, start_bytes, end_bytes);
-    return -1;
-  }
-
-  size_t bytes = end_bytes - start_bytes;
+  f_log(F_LOG_FINE, "allocated %zu bytes to read from %s", bytes, index->flookup->path);
   uint8_t* buffer = malloc(sizeof(*buffer) * bytes);
   if (buffer == NULL)
   {
@@ -92,15 +123,16 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
   }
 
   int bytes_read;
-  bytes_read = pread(index->fd, buffer, bytes, start_bytes);
-  if (bytes_read < 0)
+  bytes_read = pread(index->fd, buffer, bytes, *start_bytes);
+  if (bytes_read < 0 || bytes_read > bytes)
   {
-    printf("invalid: %zu %zu\b", bytes, start_bytes);
+    printf("invalid: %zu %zu\b", bytes, *start_bytes);
     perror("sorry");
   }
 
   int pos = 0;
 
+  f_log(F_LOG_FINE, "Byte to populate lookup %zu", bytes_read);
   while (pos < bytes_read)
   {
     string[pos] = (char) buffer[pos];
@@ -109,6 +141,8 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
 
   string[pos] = '\0';
   free(buffer);
+  free(start_bytes);
+  free(end_bytes);
   if (size != NULL)
   {
     *size = pos;
