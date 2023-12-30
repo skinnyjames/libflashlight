@@ -142,6 +142,8 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
     free(tmp);
   }
 
+  malloc_trim(0);
+
   if (last)
   {
     f_lookup_file_append(init, 0ul);

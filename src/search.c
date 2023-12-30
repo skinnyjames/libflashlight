@@ -110,10 +110,6 @@ void* f_index_search_thread(void* payload)
 {
   f_searcher_thread* config = payload;
   f_index* index = config->index;
-
-   size_t mystacksize;
-   pthread_attr_getstacksize(&attr, &mystacksize);
-   printf("Thread %d: stack size = %li bytes \n", config->thread, mystacksize);
   
   pcre2_match_data* match_data;
   match_data = pcre2_match_data_create_from_pattern(config->regex, NULL);
@@ -123,6 +119,14 @@ void* f_index_search_thread(void* payload)
 
   for (size_t i=config->start; i<config->count + config->start; i+=config->buffer)
   {
+    if (*config->result_count >= config->result_limit) 
+    {
+      f_log(F_LOG_ERROR, "met result limit");
+      config->progress = (double) 1.0f;
+      pcre2_match_data_free(match_data);
+      pthread_exit(NULL);
+    }
+
     int lookup_len;
     char* lookup;
 
@@ -175,8 +179,6 @@ void* f_index_search_thread(void* payload)
       p++;
       line_number++;
 
-      // printf("line: %zu %zu %zu\n", line_number, config->start, config->start + config->count);
-
       if (strlen(line) == 0)
       {
         f_log(F_LOG_DEBUG, "line is len of 0");
@@ -215,8 +217,16 @@ void* f_index_search_thread(void* payload)
           // config->progress = (double) p / buffer;
           continue;
           // pthread_exit(NULL);
+          if (*config->result_count >= config->result_limit) 
+          {
+            f_log(F_LOG_ERROR, "met result limit");
+            config->progress = (double) 1.0f;
+            free(lookup);
+            pcre2_match_data_free(match_data);
 
-      }
+            pthread_exit(NULL);
+          }
+        }
 
         ovector = pcre2_get_ovector_pointer(match_data);
         f_search_result* res;
@@ -239,7 +249,7 @@ void* f_index_search_thread(void* payload)
           pthread_mutex_lock(&search_mutex);
           if (*config->result_count >= config->result_limit) 
           {
-            f_log(F_LOG_INFO, "met result limit");
+            f_log(F_LOG_ERROR, "met result limit");
             config->progress = (double) 1.0f;
             f_search_result_free(res);
             free(lookup);
@@ -266,6 +276,7 @@ void* f_index_search_thread(void* payload)
     }
 
     free(lookup);
+    malloc_trim(0);
     // pthread_mutex_lock(&search_mutex);
     config->progress = (double) (i - config->start) / (config->count);
     // pthread_mutex_unlock(&search_mutex);
@@ -399,7 +410,9 @@ int f_index_search(f_searcher config)
     while (!next)
     {
       // if i progresses reached 1, go to next block
-      next = searcher_threads[i]->progress >= 1;
+      next = searcher_threads[i]->progress >= 0.999;
+
+      // f_log(F_LOG_ERROR, "searcher [%d] -> %lf", i, searcher_threads[i]->progress);
       if (next) printf("next is ready? %d\n", next);
       double progress = 0.0f;
 
