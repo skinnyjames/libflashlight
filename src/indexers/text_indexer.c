@@ -82,7 +82,9 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
     pos++;
   }
 
+  f_log(F_LOG_DEBUG, "Freeing buffer");
   free(buffer);
+  // malloc_trim(0);
   f_chunk* chunk;
   f_chunk_new(&chunk, ic->index, start_node, last_chunk_node);
   chunk->line_count = line_count;
@@ -182,6 +184,7 @@ void* f_index_text_chunk(void* payload)
   f_chunk_array_reverse_reduce(&ret, tthread->thread, chunk_array, ic->len);
   ret->line_count = line_count;
 
+  f_log(F_LOG_DEBUG, "Free chunk");
   f_chunk_array_free(chunk_array, ic->len);
   f_indexer_chunks_free(ic);
   return (void*) ret;

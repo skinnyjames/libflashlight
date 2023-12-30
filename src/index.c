@@ -107,23 +107,28 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
 
   size_t bytes = *end_bytes - *start_bytes;
 
-  f_log(F_LOG_FINE, "allocated %zu bytes to read from %s", bytes, index->flookup->path);
-  uint8_t* buffer = malloc(sizeof(*buffer) * bytes);
+  // f_log(F_LOG_FINE, "allocated %zu bytes to read from %s", bytes, index->flookup->path);
+  char* buffer = malloc(sizeof(char) * bytes);
   if (buffer == NULL)
   {
     perror("failed to allocate");
+    *out = NULL;
     return -1;
   }
 
-  char* string = malloc(sizeof(*string) * (bytes + 1));
+
+  size_t bytes_read = pread(index->fd, buffer, bytes, (off_t) *start_bytes);
+  char* string = malloc(sizeof(char) * (bytes + 1));
   if (string == NULL)
   {
+    f_log(F_LOG_ERROR, "Couldn't allocate string!");
     free(buffer);
+    free(start_bytes);
+    free(end_bytes);
+    *out = NULL;
     return -1;
   }
 
-  int bytes_read;
-  bytes_read = pread(index->fd, buffer, bytes, *start_bytes);
   if (bytes_read < 0 || bytes_read > bytes)
   {
     printf("invalid: %zu %zu\b", bytes, *start_bytes);
@@ -132,22 +137,31 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
 
   int pos = 0;
 
-  f_log(F_LOG_FINE, "Byte to populate lookup %zu", bytes_read);
+
+  // f_log(F_LOG_FINE, "Byte to populate lookup %zu", bytes_read);
+
+  // memcpy(string, buffer, bytes_read);
   while (pos < bytes_read)
   {
     string[pos] = (char) buffer[pos];
     pos++;
   }
+  
+  string[bytes_read] = 0;
 
-  string[pos] = '\0';
+
+  // f_log(F_LOG_ERROR, "assigning null terminator %d", string[bytes_read] == '\0');
+
+  // if (size != NULL)
+  // {
+  //   *size = pos;
+  // }
+
+  // f_log(F_LOG_INFO, "out is %s", string);
+  *out = string;
   free(buffer);
   free(start_bytes);
   free(end_bytes);
-  if (size != NULL)
-  {
-    *size = pos;
-  }
-  *out = string;
   return 0;
 }
 

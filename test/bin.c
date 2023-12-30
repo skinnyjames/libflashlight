@@ -13,19 +13,40 @@ void search_progress(double progress)
 
 int search_result_compare(const void* a, const void* b, void* udata)
 {
-  f_search_result** sa = a;
-  f_search_result** sb = b;
-  return (*sa)->line_number > (*sb)->line_number ? 1 : -1;
+  f_search_result* sa = a;
+  f_search_result* sb = b;
+  return (sa)->line_number > (sb)->line_number ? 1 : -1;
 }
 
 void append_search_result(f_search_result* res, void* payload)
 {
+  // f_search_result_free(res);
   struct btree* results = payload;
-  if (btree_set(results, &res) != NULL) exit(1);
+  if (btree_set(results, res) != NULL) exit(1);
 }
+
+// bool clone_btree_item(f_search_result* res, f_search_result* into)
+// {
+//   f_search_result_init(&into, res->matches_len);
+//   for (int i=0; i<res->matches_len; i++)
+//   {
+//     into->matches_substring_offset[i] = res->matches_substring_offset[i];
+//     into->matches_substring_len[i] = res->matches_substring_len[i];
+//   }
+
+//   into->str = malloc(sizeof(char) * strlen(res->str));
+//   strcpy(into->str, res->str);
+//   return true; 
+// }
+
+// bool free_btree_item(f_search_result* res, void* udata)
+// {
+//   f_search_result_free(res);
+// }
 
 int main(void)
 {
+  f_logger_set_level(F_LOG_ERROR | F_LOG_DEBUG | F_LOG_INFO | F_LOG_WARN);
   // seed rand so index filenames are random...
   srand(time(0));
   char* test = "test/zfixtures/test.txt";
@@ -53,16 +74,18 @@ int main(void)
     return -1;
   };
 
+  printf("lookup %s\n", hello);
   free(hello);
 
   // do a search
-  struct btree* results = btree_new(sizeof(f_search_result*), 0, search_result_compare, NULL);
+  struct btree* results = btree_new(sizeof(f_search_result), 200, search_result_compare, NULL);
+  // btree_set_item_callbacks(results, clone_btree_item, free_btree_item);
 
   f_searcher searcher = {
     .regex = "^car",
     .index = index,
     .threads = 6,
-    .line_buffer = 1000,
+    .line_buffer = 100,
     .result_limit = 20,
     .on_progress = search_progress,
     .progress_payload = NULL,
@@ -75,14 +98,15 @@ int main(void)
     printf("search failed\n");
   }
 
-  f_search_result** res;
-  int idx = 0;
+  bool first = true;
+  f_search_result* res;// = malloc(sizeof(f_search_result));
   while (res = btree_pop_min(results))
   {
-    printf("[%zu] - %s\n", (*res)->line_number, (*res)->str);
-    f_search_result_free(*res);
+    printf("[%zu] - %s\n", (res)->line_number, (res)->str);
+    f_search_result_free(res);
   }
 
+  // btree_iter_free(it);
   btree_free(results);
   f_index_free(&index);
 
