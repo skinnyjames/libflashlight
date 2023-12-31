@@ -12,7 +12,7 @@ int f_indexer_chunks_init(f_indexer_chunks** out, int concurrency, size_t buffer
 
   size_t bytes_count = to - from;
 
-  unsigned int chunks_count = (unsigned int) ceil(bytes_count / (double) (buffer_size));//);
+  unsigned int chunks_count = (unsigned int) ceil(bytes_count / (double) (buffer_size));
 
   if (chunks_count == 0)
   {
@@ -39,7 +39,10 @@ int f_indexer_chunks_init(f_indexer_chunks** out, int concurrency, size_t buffer
 
     if (start_position + buffer_size > bytes_count + from)
     {
+      // f_log(F_LOG_ERROR, "truncating buffer (before: %zu)", buffer_size);
       buffer_size = (bytes_count + from) - start_position;
+      // f_log(F_LOG_ERROR, "truncating buffer (after: %zu)", buffer_size);
+
     }
 
     f_indexer_chunk* chunk = malloc(sizeof(f_indexer_chunk));

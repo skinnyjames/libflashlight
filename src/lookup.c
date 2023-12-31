@@ -79,12 +79,21 @@ int f_lookup_file_init(f_lookup_file** out, char* path)
     perror("bad1");
   }
 
+  // FILE* fp = fopen_mkdir(path, "r+b");
+  // if (fp == NULL)
+  // {
+  //   perror("not open for read");
+  // }
+
   int fd = fileno(fp);
+  // int write_fd = fileno(write_fp);
   int flags = fcntl(fd, F_GETFL, 0);
   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
   init->path = path;
   init->fd = fd;
+  // init->write_fd = write_fd;
   init->fp = fp;
+  // init->write_fp = write_fp;
   init->len = 0ul;
 
   *out = init;
@@ -120,11 +129,16 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
   f_bytes_node* current = chunk->first;
   unsigned int len = chunk->line_count;
   unsigned int i = len;
-  // size_t loff = 0ul;
+  size_t loff = 0ul;
 
   f_log(F_LOG_INFO, "starting write to file");
   while (current != NULL)
   { 
+    // if (init->len + i >= 44534795 && init->len + i <= 44534905)
+    if (loff > 0 && loff - current->bytes->offset > 4000)
+    {
+      f_log(F_LOG_ERROR, "This line: [%u] [loff: %zu] contains a bad offset: %zu, diff: %zu", init->len + i, loff, current->bytes->offset, loff - current->bytes->offset);
+    }
     // if (loff != 0 && loff < current->bytes->offset)
     // {
     //   f_log(F_LOG_WARN, "failed offset: %zu is less than %zu", loff, current->bytes->offset);
@@ -132,7 +146,7 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
     // }
 
     f_lookup_file_append(init, current->bytes->offset);
-    // loff = current->bytes->offset;
+    loff = current->bytes->offset;
     i--;
 
     f_bytes_node* tmp = current;
@@ -142,7 +156,7 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
     free(tmp);
   }
 
-  malloc_trim(0);
+  MTRIM(0);
 
   if (last)
   {
