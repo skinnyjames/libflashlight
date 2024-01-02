@@ -12,7 +12,8 @@ enum F_LOG_LEVEL
   F_LOG_ERROR = 1 << 0,
   F_LOG_WARN = 1 << 1,
   F_LOG_INFO = 1 << 2,
-  F_LOG_DEBUG = 1 << 3
+  F_LOG_DEBUG = 1 << 3,
+  F_LOG_FINE = 1 << 4
 };
 
 typedef struct FLogMessage

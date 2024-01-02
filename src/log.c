@@ -9,6 +9,9 @@ void f_default_on_log_message(f_log_message msg)
   {
     switch(msg.level)
     {
+      case F_LOG_FINE: {
+        fprintf(stderr, ANSI_COLOR_YELLOW " [%s] " ANSI_COLOR_RESET "%s\n", msg.datetime, msg.message);
+      }
       case F_LOG_DEBUG: {
         fprintf(stderr, ANSI_COLOR_CYAN " [%s] " ANSI_COLOR_RESET "%s\n", msg.datetime, msg.message);
         break;
