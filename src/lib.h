@@ -1,10 +1,10 @@
 #ifndef FLASHLIGHT_LIB_H
 #define FLASHLIGHT_LIB_H
 #define PCRE2_CODE_UNIT_WIDTH 8
-#ifdef __linux_
+#ifdef __linux__ || __gnu_linux__ || linux || __linux || __unix__
 #define MTRIM(a) malloc_trim(a)
 #else
-#define MTRIM(a) do {} while(0)
+#define MTRIM(a) printf("not linux\n")
 #endif
 #include <math.h>
 #include <stdbool.h>

@@ -502,7 +502,7 @@ CWK_PUBLIC enum cwk_path_style cwk_path_get_style(void);
 #ifdef __linux_
 #define MTRIM(a) malloc_trim(a)
 #else
-#define MTRIM(a) printf("%d", a)
+#define MTRIM(a) do {} while(0)
 #endif
 #include <math.h>
 #include <stdbool.h>
@@ -923,7 +923,7 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
   @param size an int ref that is populated with the size of the fetched string
   @return non zero for error
 */
-int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int count, int* size);
+int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* size);
 
 /**
   Frees an index and it's lookup
