@@ -28,8 +28,6 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
   size_t buffer_size = ic->count;
   size_t total_bytes_offset = ic->from;
 
-  // f_log(F_LOG_DEBUG, "count: %zu - [%u] from: %zu to: %zu\n", ic->count, ic->index, ic->from, ic->from + ic->count);
-
   uint8_t* buffer = malloc(sizeof(*buffer) * buffer_size);
 
   f_bytes_node* last_chunk_node = NULL;
@@ -209,11 +207,13 @@ f_index* f_index_text_file(f_indexer indexer)
 
   double reported_progress = 0.0;
   size_t max_bytes_per_iteration = indexer.max_bytes_per_iteration;
-  unsigned int thread_it_count = (unsigned int) ceil((double) total_bytes_count / (double) (max_bytes_per_iteration));
-  if (thread_it_count == 0)
+  int thread_it_count = (int) ceil((double) total_bytes_count / (double) (max_bytes_per_iteration));
+  if (thread_it_count <= 0)
   {
     thread_it_count = 1;
   }
+
+  f_log(F_LOG_DEBUG, "max bytes per iteration %zu, thread it count: %d", max_bytes_per_iteration, thread_it_count);
 
   f_lookup_file* lookup = NULL;
   size_t index_filename_len = 12 + strlen(indexer.lookup_dir);
@@ -225,10 +225,11 @@ f_index* f_index_text_file(f_indexer indexer)
   for (int itc=thread_it_count - 1; itc>=0; itc--)
   {
     unsigned long int thread_it_start = itc * max_bytes_per_iteration;
+    size_t local_max_bytes_per_iteration = max_bytes_per_iteration;
 
     if (thread_it_start + max_bytes_per_iteration > total_bytes_count)
     {
-      max_bytes_per_iteration = total_bytes_count - thread_it_start;
+      local_max_bytes_per_iteration = total_bytes_count - thread_it_start;
     }
 
     /* 
@@ -237,7 +238,7 @@ f_index* f_index_text_file(f_indexer indexer)
     */
 
     f_indexer_threads* it;
-    f_indexer_threads_init(&it, indexer.threads, max_bytes_per_iteration, indexer.buffer_size, thread_it_start);
+    f_indexer_threads_init(&it, indexer.threads, local_max_bytes_per_iteration, indexer.buffer_size, thread_it_start);
 
     // setup pthreads and thread chunks array.
     f_chunk** chunks;
@@ -256,14 +257,11 @@ f_index* f_index_text_file(f_indexer indexer)
       tthread->fd = fd;
       tthread->from = it->threads[i].from;
       tthread->to = it->threads[i].to;
-      tthread->total_bytes_count = total_bytes_count;
+      tthread->total_bytes_count = max_bytes_per_iteration;
       tthread->buffer_size = it->threads[i].buffer_size;
       tthread->concurrency = indexer.concurrency;
       tthread->thread = i;
       tthread->progress = (double) 0.0;
-
-      f_log(F_LOG_INFO, "[iteration %d] Starting thread %d", itc, i);
-      f_log(F_LOG_DEBUG, "[%d] total bytes: %zu, %zu - from: %zu, to: %zu", i, total_bytes_count, max_bytes_per_iteration, tthread->from, tthread->to);
 
       tthreads[i] = tthread;
       pthread_create(&thread_ids[i], NULL, f_index_text_chunk, tthreads[i]);

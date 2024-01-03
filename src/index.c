@@ -1,5 +1,6 @@
 #ifndef FLASHLIGHT_INDEX
 #define FLASHLIGHT_INDEX
+#define _FILE_OFFSET_BITS == 64
 #include "index.h"
 #include <string.h>
 
@@ -36,17 +37,32 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
   return 0;
 }
 
-int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int count, int* size)
+int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* size)
 {
-  size_t start_bytes;
-  size_t end_bytes;
+  enum F_LOG_LEVEL log_level = f_logger_get_level();
 
-  size_t zero_offset = ((index->flookup->len - 1) * sizeof(size_t));
-  size_t start_offset = (zero_offset - (start * sizeof(size_t)));
-  size_t count_offset = (count * sizeof(size_t));
-  size_t end_offset;
+  if (start > index->flookup->len - 1)
+  {
+    f_log(F_LOG_WARN, "start %u is greater than max %u", start, index->flookup->len - 1);
+    *out = NULL;
+    *size = 0;
+    return 0;
+  }
+  else if (start + count > index->flookup->len - 1)
+  {
+    size_t newcount = index->flookup->len - 1 - start;
+    f_log(F_LOG_DEBUG, "truncating lookup len [%zu %zu] -> [%zu %zu]", start, count, start, newcount);
+    count = newcount;
+  }
+
+  off_t zero_offset = ((index->flookup->len - 1) * sizeof(size_t));
+  off_t start_offset = (zero_offset - (start * sizeof(size_t)));
+  off_t count_offset = (count * sizeof(size_t));
+  off_t end_offset;
+
   if ((long) start_offset - (long) count_offset <= 0)
   {
+    f_log(F_LOG_DEBUG, "start offset - count offset is less than 0"); 
     end_offset = 0ul;
   }
   else
@@ -54,66 +70,120 @@ int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int 
     end_offset = start_offset - count_offset;
   }
 
-  if (fseek(index->flookup->fp, start_offset, SEEK_SET) != 0)
+  f_log(F_LOG_FINE, "size of zero offset: %zu %zu", zero_offset, sizeof(size_t));
+
+  size_t buffer_size = sizeof(size_t);
+  size_t* start_bytes = malloc(buffer_size);
+  size_t* end_bytes = malloc(buffer_size);
+
+  if (pread(index->flookup->fd, start_bytes, buffer_size, start_offset) < 0)
   {
-    perror("faailed to seek");
-    return -1;
+    perror("read failed");
+    f_log(F_LOG_ERROR, "index read at %u returned 0 bytes", start);
+    *out = NULL;
+    *size = 0;
+
+    free(start_bytes);
+    free(end_bytes);
+    return 0;
   }
 
-  fread(&start_bytes, sizeof(size_t), 1, index->flookup->fp);
-
-  if (fseek(index->flookup->fp, end_offset, SEEK_SET) != 0)
+  if (pread(index->flookup->fd, end_bytes, buffer_size, end_offset) < 0)
   {
-    perror("faailed to seek");
-    return -1;
+    perror("read failed");
+    f_log(F_LOG_ERROR, "index read at %u returned 0 bytes", start);
+    *out = NULL;
+    *size = 0;
+
+    free(start_bytes);
+    free(end_bytes);
+    return 0;
   }
 
-  fread(&end_bytes, sizeof(size_t), 1, index->flookup->fp);
+  // Check the zero offset for logging
+  if (log_level & F_LOG_FINE)
+  {
+    size_t* zero_bytes = malloc(buffer_size);
+    if (pread(index->flookup->fd, zero_bytes, buffer_size, (off_t) 0) < 0)
+    {
+      perror("read failed");
+      f_log(F_LOG_ERROR, "index read at %u returned 0 bytes", 0);
+      *out = NULL;
+      *size = 0;
 
-  if (start_bytes > end_bytes)
+      free(zero_bytes);
+      free(start_bytes);
+      free(end_bytes);
+      return 0;
+    }
+
+    f_log(F_LOG_FINE, "Zero bytes offset from index is %zu", *zero_bytes);
+    free(zero_bytes);
+  }
+
+  if (*start_bytes > *end_bytes)
   {
     f_log(F_LOG_ERROR, "something went wrong - (zo: %zu) start: %ld, count: %ld, (start_offset: %zu, end_offset %zu, count offset: %zu) %zu, %zu", zero_offset, start, count, start_offset, end_offset, count_offset, start_bytes, end_bytes);
+    *out = NULL;
+    *size = 0;
+    
+    free(start_bytes);
+    free(end_bytes);
     return -1;
   }
 
-  size_t bytes = end_bytes - start_bytes;
-  uint8_t* buffer = malloc(sizeof(*buffer) * bytes);
+  size_t bytes = *end_bytes - *start_bytes;
+  char* buffer = malloc(sizeof(char) * bytes);
   if (buffer == NULL)
   {
-    perror("failed to allocate");
+    perror("failed to allocate buffer for lookup");
+    *out = NULL;
+    *size = 0;
+
+    free(start_bytes);
+    free(end_bytes);
     return -1;
   }
 
-  char* string = malloc(sizeof(*string) * (bytes + 1));
-  if (string == NULL)
-  {
-    free(buffer);
-    return -1;
-  }
+  off_t starting_bytes = (off_t) *start_bytes;
+  ssize_t bytes_read = pread(index->fd, buffer, bytes, starting_bytes);
 
-  int bytes_read;
-  bytes_read = pread(index->fd, buffer, bytes, start_bytes);
   if (bytes_read < 0)
   {
-    printf("invalid: %zu %zu\b", bytes, start_bytes);
-    perror("sorry");
+    perror("bytes_read is negative");
+
+    f_log(F_LOG_ERROR, "invalid - bytes: %zu  start bytes: %zu, end_bytes: %zu offt (%ld)\n", bytes, *start_bytes, *end_bytes, starting_bytes);
+    f_log(F_LOG_DEBUG, "[debug] bytes read: %d lines are: %zu, %zu, [allocation %zu]", bytes_read, start, start + count, bytes);
+    f_log(F_LOG_DEBUG, "Start off: %ld - Count off %ld, End off: %ld zero off: %ld", start_offset, count_offset, end_offset, zero_offset);
+
+    free(buffer);
+    free(start_bytes);
+    free(end_bytes);
+    *out = NULL;
+    *size = 0;
+    return -1;
   }
 
-  int pos = 0;
-
-  while (pos < bytes_read)
+  char* string = malloc(sizeof(char) * (bytes_read + 1));
+  if (string == NULL)
   {
-    string[pos] = (char) buffer[pos];
-    pos++;
+    f_log(F_LOG_ERROR, "Couldn't allocate string!");
+    free(buffer);
+    free(start_bytes);
+    free(end_bytes);
+    *out = NULL;
+    *size = 0;
+    return -1;
   }
 
-  string[pos] = '\0';
-  free(buffer);
-  if (size != NULL)
-  {
-    *size = pos;
-  }
+  memcpy(string, buffer, bytes_read);
+  string[bytes_read] = 0;
+
   *out = string;
+  *size = strlen(string);
+  free(buffer);
+  free(start_bytes);
+  free(end_bytes);
   return 0;
 }
 

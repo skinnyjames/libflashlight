@@ -76,7 +76,7 @@ int f_lookup_file_init(f_lookup_file** out, char* path)
   FILE* fp = fopen_mkdir(path, "w+b");
   if (fp == NULL)
   {
-    perror("bad1");
+    perror("unable to init file lookup");
   }
 
   int fd = fileno(fp);
@@ -96,7 +96,7 @@ int f_lookup_file_append(f_lookup_file* db, size_t offset)
   int rc = fwrite(&offset, sizeof(size_t), 1, db->fp);
   if (rc < 1)
   {
-    perror("didn't write");
+    perror("unable to append file lookup");
     return -1;
   }
 

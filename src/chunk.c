@@ -45,34 +45,6 @@ void f_chunk_free_all(f_chunk* chunk)
   f_chunk_free(&chunk);
 }
 
-/*
-in order to produce a concurrent linked list, each concurrent function 
-needs to return a chunk.
-
-a chunk contains a linked list with a reference to it's tail.
-when we have an array of chunks, we can then link the lists by the tail ref when flattening.
-
-```
-[{ first: c -> b -> a, last: a }, { first: f -> e -> d, last: d }, {first: i -> h -> g, last: g }]
-
-we want to combine these lists to produce the following chunk.
-
-{ first: i -> h -> g -> f -> e -> d -> c -> b -> a, last: a }
-
-lets work through it.
-
-the result chunk starts with
-
-[{ first: NULL, last: a }]
-
-then we iterate.
-
-a = { first: c -> b -> a, last: a }
-b = { first: f -> e -> d, last: d }
-
-b->last->next = a->first
-res = b->first
-*/
 void f_chunks_swap(f_bytes_node** last, f_bytes_node** child)
 {
   (*last)->next = *child;
@@ -150,11 +122,6 @@ int f_chunk_array_new(f_chunk*** out, unsigned long len)
   {
     return -1;
   }
-
-  // this is sorta expensive...
-  // for (int i=0; i<len; i++) {
-  //   arr[i] = NULL;
-  // }
 
   *out = arr;
   return 0;

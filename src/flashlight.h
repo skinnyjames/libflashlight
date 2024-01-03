@@ -527,7 +527,8 @@ enum F_LOG_LEVEL
   F_LOG_ERROR = 1 << 0,
   F_LOG_WARN = 1 << 1,
   F_LOG_INFO = 1 << 2,
-  F_LOG_DEBUG = 1 << 3
+  F_LOG_DEBUG = 1 << 3,
+  F_LOG_FINE = 1 << 4
 };
 
 typedef struct FLogMessage
@@ -917,7 +918,7 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
   @param size an int ref that is populated with the size of the fetched string
   @return non zero for error
 */
-int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int count, int* size);
+int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* size);
 
 /**
   Frees an index and it's lookup

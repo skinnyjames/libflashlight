@@ -52,7 +52,7 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
   @param size an int ref that is populated with the size of the fetched string
   @return non zero for error
 */
-int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int count, int* size);
+int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* size);
 
 /**
   Frees an index and it's lookup
