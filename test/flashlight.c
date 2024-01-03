@@ -7,6 +7,7 @@
 #include "index.c"
 #include "indexer.c"
 #include "search.c"
+#include "log.c"
 
 GREATEST_MAIN_DEFS();
 
@@ -24,6 +25,7 @@ int main(int argc, char** argv)
   RUN_SUITE(f_index_suite);
   RUN_SUITE(f_indexer_suite);
   RUN_SUITE(f_search_suite);
+  RUN_SUITE(f_log_suite);
 
   GREATEST_MAIN_END();
 }

@@ -37,14 +37,20 @@ void f_logger_set_level(enum F_LOG_LEVEL level)
   f_log_level = level;
 }
 
-void f_logger_set_cb(f_logger_cb cb)
+void f_logger_set_cb(f_logger_cb cb, void* payload)
 {
   f_log_cb = cb;
+  f_log_payload = payload;
 }
 
 f_logger_cb f_logger_get_cb()
 {
   return f_log_cb;
+}
+
+void* f_logger_get_payload()
+{
+  return f_log_payload;
 }
 
 enum F_LOG_LEVEL f_logger_get_level()
@@ -59,6 +65,7 @@ void f_log(enum F_LOG_LEVEL level, char* fmt, ...)
   char datetime[64];
   size_t ret = strftime(datetime, sizeof(datetime), "%c", tm);
   char message[500];
+  void* payload = f_logger_get_payload();
 
   va_list args;
   va_start(args, fmt);
@@ -73,7 +80,7 @@ void f_log(enum F_LOG_LEVEL level, char* fmt, ...)
   }
   else
   {
-    f_log_cb(msg);
+    f_log_cb(msg, payload);
   }
 }
 

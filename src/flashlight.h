@@ -544,14 +544,16 @@ typedef struct FLogMessage
   char* message;
 } f_log_message;
 
-typedef void (*f_logger_cb)(f_log_message message);
+typedef void (*f_logger_cb)(f_log_message message, void* payload);
 static volatile f_logger_cb f_log_cb = NULL;
 static volatile enum F_LOG_LEVEL f_log_level = F_LOG_ERROR;
+static volatile void* f_log_payload = NULL;
 
 void f_logger_set_level(enum F_LOG_LEVEL level);
-void f_logger_set_cb(f_logger_cb cb);
+void f_logger_set_cb(f_logger_cb cb, void* payload);
 f_logger_cb f_logger_get_cb();
 enum F_LOG_LEVEL f_logger_get_level();
+void* f_logger_get_payload();
 void f_log(enum F_LOG_LEVEL level, char* fmt, ...);
 
 #endif
