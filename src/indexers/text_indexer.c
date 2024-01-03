@@ -81,6 +81,8 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
   }
 
   free(buffer);
+  F_MTRIM(0);
+
   f_chunk* chunk;
   f_chunk_new(&chunk, ic->index, start_node, last_chunk_node);
   chunk->line_count = line_count;
