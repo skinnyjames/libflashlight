@@ -2,6 +2,7 @@
 #define FLASHLIGHT_LIB
 
 #include "lib.h"
+#include "log.c"
 #include "../vendor/cwalk.c"
 #include "node.c"
 #include "bytes.c"

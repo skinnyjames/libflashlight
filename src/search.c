@@ -46,7 +46,7 @@ int f_search_results_init(f_search_results** out)
 
 void f_search_results_prepend(f_search_results** results, f_search_result* addition)
 {    
-  f_search_result* head = (*results)->result;
+  f_search_results* head = *results;
 
   if (head == NULL)
   {
@@ -92,9 +92,15 @@ char* tokenize(char** iptr, char* delim)
     token_length = strlen(str);
   }
 
-  token = malloc(token_length + 1);
-  memcpy(token, str, token_length);
+  if (token_length < 0)
+  {
+    *iptr = NULL;
+    return NULL;
+  }
+
+  token = malloc(sizeof(char) * (token_length + 1));
   token[token_length] = '\0';
+  memcpy(token, str, token_length);
 
   *iptr = found ? found + strlen(delim) : NULL;
   return token;
@@ -113,24 +119,36 @@ void* f_index_search_thread(void* payload)
 
   for (size_t i=config->start; i<config->count + config->start; i+=config->buffer)
   {
+    if (*config->result_count >= config->result_limit) 
+    {
+      f_log(F_LOG_INFO, "met result limit");
+      config->progress = (double) 1.0f;
+      pcre2_match_data_free(match_data);
+      pthread_exit(NULL);
+    }
+
     char* lookup;
     int lookup_len;
 
     size_t buffer = config->buffer;
-    if (i + buffer > config->count + config->start) {
+    if (i + buffer > config->count + config->start)
+    {
       buffer = (config->count + config->start - i - 1);
     }
 
-    pthread_mutex_lock(&search_mutex);
-
     if (f_index_lookup(&lookup, index, i, buffer, &lookup_len) != 0)
     {
-      printf("lookup failed to start: %u buffer: %u\n", i, buffer);
+      f_log(F_LOG_ERROR, "lookup failed to start: %zu buffer: %zu", i, buffer); 
       config->progress = (double) 1.0f;
-      pthread_mutex_unlock(&search_mutex);
-      return NULL;
+      pthread_exit(NULL); 
     }
-    pthread_mutex_unlock(&search_mutex);
+
+    if (lookup == NULL)
+    {
+      f_log(F_LOG_WARN, "lookup is NULL");
+      config->progress = (double) 1.0f;
+      pthread_exit(NULL);
+    }
 
     /*
       we have 100 lines from disk, so we need to split them up.
@@ -140,16 +158,15 @@ void* f_index_search_thread(void* payload)
     char* lookupcpy = lookup;
     double p = 0.0f;
 
-    while (line = tokenize(&lookupcpy, "\n"))
+    while ((line = tokenize(&lookupcpy, "\n")))
     {
       p++;
       line_number++;
-      // printf("line: %zu %zu %zu\n", line_number, config->start, config->start + config->count);
 
       if (strlen(line) == 0)
       {
+        f_log(F_LOG_DEBUG, "line is len of 0"); 
         free(line);
-        if (p < buffer) config->progress = (double) p / buffer;
         continue;
       }
 
@@ -168,16 +185,28 @@ void* f_index_search_thread(void* payload)
 
       if (rc < 0 && rc != PCRE2_ERROR_NOMATCH)
       {
+        f_log(F_LOG_ERROR, "bad pcre2 rc %d", rc);
         free(line);
         free(lookup);
         pcre2_match_data_free(match_data);
-        break;
+        config->progress = (double) 1.0f;
+        pthread_exit(NULL);
       }
       else
       {
         if (rc == PCRE2_ERROR_NOMATCH) {
           free(line);
-          config->progress = (double) p / buffer;
+          // check result count on no match.
+          if (*config->result_count >= config->result_limit) 
+          {
+            f_log(F_LOG_INFO, "met result limit");
+            config->progress = (double) 1.0f;
+            free(lookup);
+            pcre2_match_data_free(match_data);
+
+            pthread_exit(NULL);
+          }
+
           continue;
         }
 
@@ -197,28 +226,42 @@ void* f_index_search_thread(void* payload)
         
         if (config->on_result != NULL)
         {
+          f_log(F_LOG_DEBUG, "locking for result cb");
+
           pthread_mutex_lock(&search_mutex);
           if (*config->result_count >= config->result_limit) 
           {
+            f_log(F_LOG_INFO, "met result limit");
             config->progress = (double) 1.0f;
+            f_search_result_free(res);
+            free(lookup);
+            pcre2_match_data_free(match_data);
             pthread_mutex_unlock(&search_mutex);
-            return NULL;
+
+            pthread_exit(NULL);
           }
 
           *config->result_count += 1;
+          f_log(F_LOG_DEBUG, "calling on result"); 
           config->on_result(res, config->result_payload);
+          f_log(F_LOG_DEBUG, "on result finished");
           pthread_mutex_unlock(&search_mutex);
         }
-        
-        config->progress = (double) p / buffer;
+        else
+        {
+          // free if there isn't a supplied callback
+          f_search_result_free(res);
+        }
       }
     }
 
     free(lookup);
+    config->progress = (double) (i - config->start) / (config->count);
   }
-
+  config->progress = (double) 1.0f;
+  f_log(F_LOG_DEBUG, "returning from thread");
   pcre2_match_data_free(match_data);
-  return NULL;
+  pthread_exit(NULL);
 }
 
 int f_search_result_compare(const void* a, const void* b, void* udata)
@@ -268,6 +311,7 @@ int f_index_search(f_searcher config)
   PCRE2_SPTR pattern = (PCRE2_SPTR) config.regex;
   if (f_search_compile_term(&re, pattern) != 0)
   {
+    f_log(F_LOG_WARN, "Supplied regex is invalid");
     return -2;
   }
 
@@ -326,25 +370,25 @@ int f_index_search(f_searcher config)
     while (!next)
     {
       // if i progresses reached 1, go to next block
-      next = searcher_threads[i]->progress >= 1;
+      next = searcher_threads[i]->progress >= 0.999;
       double progress = 0.0f;
 
       for (int p=0; p<threads; p++)
       {
-        progress += searcher_threads[p]->progress / (double) threads;
+        progress += (searcher_threads[p]->progress / (double) threads);
       }
 
       if (config.on_progress != NULL)
       {
-        config.on_progress(progress, &config.progress_payload);
+        config.on_progress(progress, config.progress_payload);
       }
     }
 
     // join next thread.
     if (pthread_join(thread_ids[i], NULL) != 0)
     {
-      perror("can't join pthread");
-      exit(1);
+      perror("can't join searcher thread");
+      f_log(F_LOG_WARN, "Can't joint thread %d", i);
     }
   }
 

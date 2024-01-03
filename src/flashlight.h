@@ -499,6 +499,12 @@ CWK_PUBLIC enum cwk_path_style cwk_path_get_style(void);
 #ifndef FLASHLIGHT_LIB_H
 #define FLASHLIGHT_LIB_H
 
+#define PCRE2_CODE_UNIT_WIDTH 8
+#ifdef __linux__ || __gnu_linux__ || linux || __linux || __unix__
+#define F_MTRIM(a) malloc_trim(a)
+#else
+#define F_MTRIM(a) do {} while(0)
+#endif
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -510,6 +516,45 @@ CWK_PUBLIC enum cwk_path_style cwk_path_get_style(void);
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <stdarg.h>
+
+#endif
+#ifndef FLASHLIGHT_LOG_H
+#define FLASHLIGHT_LOG_H
+
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
+enum F_LOG_LEVEL
+{
+  F_LOG_ERROR = 1 << 0,
+  F_LOG_WARN = 1 << 1,
+  F_LOG_INFO = 1 << 2,
+  F_LOG_DEBUG = 1 << 3,
+  F_LOG_FINE = 1 << 4
+};
+
+typedef struct FLogMessage
+{
+  char* datetime;
+  enum F_LOG_LEVEL level;
+  char* message;
+} f_log_message;
+
+typedef void (*f_logger_cb)(f_log_message message, void* payload);
+static volatile f_logger_cb f_log_cb = NULL;
+static volatile enum F_LOG_LEVEL f_log_level = F_LOG_ERROR;
+static volatile void* f_log_payload = NULL;
+
+void f_logger_set_level(enum F_LOG_LEVEL level);
+void f_logger_set_cb(f_logger_cb cb, void* payload);
+f_logger_cb f_logger_get_cb();
+enum F_LOG_LEVEL f_logger_get_level();
+void* f_logger_get_payload();
+void f_log(enum F_LOG_LEVEL level, char* fmt, ...);
 
 #endif
 #ifndef FLASHLIGHT_NODE_H
@@ -881,7 +926,7 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
   @param size an int ref that is populated with the size of the fetched string
   @return non zero for error
 */
-int f_index_lookup(char** out, f_index* index, unsigned int start, unsigned int count, int* size);
+int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* size);
 
 /**
   Frees an index and it's lookup

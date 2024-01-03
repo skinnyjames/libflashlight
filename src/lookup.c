@@ -76,10 +76,12 @@ int f_lookup_file_init(f_lookup_file** out, char* path)
   FILE* fp = fopen_mkdir(path, "w+b");
   if (fp == NULL)
   {
-    perror("bad1");
+    perror("unable to init file lookup");
   }
 
   int fd = fileno(fp);
+  int flags = fcntl(fd, F_GETFL, 0);
+  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
   init->path = path;
   init->fd = fd;
   init->fp = fp;
@@ -94,7 +96,7 @@ int f_lookup_file_append(f_lookup_file* db, size_t offset)
   int rc = fwrite(&offset, sizeof(size_t), 1, db->fp);
   if (rc < 1)
   {
-    perror("didn't write");
+    perror("unable to append file lookup");
     return -1;
   }
 
@@ -118,6 +120,8 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
   unsigned int len = chunk->line_count;
   unsigned int i = len;
 
+  f_log(F_LOG_INFO, "starting write to file");
+
   while (current != NULL)
   { 
     f_lookup_file_append(init, current->bytes->offset);
@@ -129,6 +133,8 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
     free(tmp->bytes);
     free(tmp);
   }
+
+  F_MTRIM(0);
 
   if (last)
   {
@@ -144,6 +150,8 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
   {
     perror("didn't flush");
   }
+
+  f_log(F_LOG_INFO, "finished write to file");
 
   free(chunk);
   *out = init;
