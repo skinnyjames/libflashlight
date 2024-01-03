@@ -499,6 +499,7 @@ CWK_PUBLIC enum cwk_path_style cwk_path_get_style(void);
 #ifndef FLASHLIGHT_LIB_H
 #define FLASHLIGHT_LIB_H
 
+#define PCRE2_CODE_UNIT_WIDTH 8
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
