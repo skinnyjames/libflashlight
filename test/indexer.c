@@ -190,11 +190,11 @@ TEST test_text_indexer(void)
   f_index* index = f_index_text_file(i);
 
   char* v;
-  int size;
-  if (f_index_lookup(&v, index, 6, 3, &size) == -1)
+  if (f_index_lookup(&v, index, 6, 3) == -1)
   {
     FAIL();
   }
+  int size = strlen(v);
   char* e = "I\nlike\npie\n";
   ASSERT_EQ_FMT(11, size, "%d");
   ASSERT_STR_EQ(e, v);

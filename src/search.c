@@ -128,15 +128,13 @@ void* f_index_search_thread(void* payload)
     }
 
     char* lookup;
-    int lookup_len;
-
     size_t buffer = config->buffer;
     if (i + buffer > config->count + config->start)
     {
       buffer = (config->count + config->start - i - 1);
     }
 
-    if (f_index_lookup(&lookup, index, i, buffer, &lookup_len) != 0)
+    if (f_index_lookup(&lookup, index, i, buffer) != 0)
     {
       f_log(F_LOG_ERROR, "lookup failed to start: %zu buffer: %zu", i, buffer); 
       config->progress = (double) 1.0f;

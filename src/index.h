@@ -45,14 +45,13 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
 /**
   Fetches a portion of the file
   
-  @param out the fetched string
+  @param out the fetched string, zero terminated
   @param index the index to search
   @param start the start line index
   @param count the number of lines to fetch
-  @param size an int ref that is populated with the size of the fetched string
   @return non zero for error
 */
-int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* size);
+int f_index_lookup(char** out, f_index* index, size_t start, size_t count);
 
 /**
   Frees an index and it's lookup

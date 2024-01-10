@@ -47,8 +47,7 @@ int main(void)
 
   size_t start = 0;
   char* hello;
-  int size;
-  if (f_index_lookup(&hello, index, start, 5, NULL) == -1)
+  if (f_index_lookup(&hello, index, start, 5) == -1)
   {
     printf("failure\n");
     return -1;

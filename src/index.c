@@ -37,7 +37,7 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
   return 0;
 }
 
-int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* size)
+int f_index_lookup(char** out, f_index* index, size_t start, size_t count)
 {
   enum F_LOG_LEVEL log_level = f_logger_get_level();
 
@@ -45,7 +45,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
   {
     f_log(F_LOG_WARN, "start %u is greater than max %u", start, index->flookup->len - 1);
     *out = NULL;
-    *size = 0;
     return 0;
   }
   else if (start + count > index->flookup->len - 1)
@@ -81,7 +80,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
     perror("read failed");
     f_log(F_LOG_ERROR, "index read at %u returned 0 bytes", start);
     *out = NULL;
-    *size = 0;
 
     free(start_bytes);
     free(end_bytes);
@@ -93,7 +91,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
     perror("read failed");
     f_log(F_LOG_ERROR, "index read at %u returned 0 bytes", start);
     *out = NULL;
-    *size = 0;
 
     free(start_bytes);
     free(end_bytes);
@@ -109,7 +106,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
       perror("read failed");
       f_log(F_LOG_ERROR, "index read at %u returned 0 bytes", 0);
       *out = NULL;
-      *size = 0;
 
       free(zero_bytes);
       free(start_bytes);
@@ -125,7 +121,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
   {
     f_log(F_LOG_ERROR, "something went wrong - (zo: %zu) start: %ld, count: %ld, (start_offset: %zu, end_offset %zu, count offset: %zu) %zu, %zu", zero_offset, start, count, start_offset, end_offset, count_offset, start_bytes, end_bytes);
     *out = NULL;
-    *size = 0;
     
     free(start_bytes);
     free(end_bytes);
@@ -138,7 +133,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
   {
     perror("failed to allocate buffer for lookup");
     *out = NULL;
-    *size = 0;
 
     free(start_bytes);
     free(end_bytes);
@@ -160,7 +154,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
     free(start_bytes);
     free(end_bytes);
     *out = NULL;
-    *size = 0;
     return -1;
   }
 
@@ -172,7 +165,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
     free(start_bytes);
     free(end_bytes);
     *out = NULL;
-    *size = 0;
     return -1;
   }
 
@@ -180,7 +172,6 @@ int f_index_lookup(char** out, f_index* index, size_t start, size_t count, int* 
   string[bytes_read] = 0;
 
   *out = string;
-  *size = strlen(string);
   free(buffer);
   free(start_bytes);
   free(end_bytes);
