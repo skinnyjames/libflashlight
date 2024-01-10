@@ -51,9 +51,8 @@ int main(void)
   f_index* index = f_index_text_file(config);
 
   char* lookup
-  int lookup_size;
   // lookup 5 lines starting at line 9 million.
-  if (f_index_lookup(&lookup, index, 9000000, 5, &lookup_size) == -1)
+  if (f_index_lookup(&lookup, index, 9000000, 5) == -1)
   {
     printf("failure\n");
     return 1;
