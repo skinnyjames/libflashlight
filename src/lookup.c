@@ -54,13 +54,19 @@ void f_lookup_mem_free(f_lookup_mem* lookup)
 FILE* fopen_mkdir(const char* path, const char* mode)
 {
   char* p = strdup(path);
+  if (p == NULL)
+  {
+    return NULL;
+  }
+
   char* sep = strchr(p+1, '/');
   while(sep != NULL)
   {
     *sep = '\0';
     if (mkdir(p, 0755) && errno != EEXIST)
     {
-      fprintf(stderr, "error while trying to create %s\n", p);
+      f_log(F_LOG_ERROR, "error while trying to create %s\n", p);
+      return NULL;
     }
     *sep = '/';
     sep = strchr(sep+1, '/');
@@ -72,16 +78,37 @@ FILE* fopen_mkdir(const char* path, const char* mode)
 int f_lookup_file_init(f_lookup_file** out, char* path)
 {
   f_lookup_file* init = malloc(sizeof(*init));
+  if (init == NULL)
+  {
+    return -1;
+  }
 
   FILE* fp = fopen_mkdir(path, "w+b");
   if (fp == NULL)
   {
-    perror("unable to init file lookup");
+    perror("Error opening");
+    f_log(F_LOG_ERROR, "Can't open file (w+b) %s", path);
+    return -1;
   }
 
   int fd = fileno(fp);
+  if (fd == -1)
+  {
+    f_log(F_LOG_ERROR, "Can't get file descriptor for lookup");
+    return -1;
+  }
+
   int flags = fcntl(fd, F_GETFL, 0);
-  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  if (flags == -1)
+  {
+    return -1;
+  }
+  
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+  {
+    return -1;
+  }
+
   init->path = path;
   init->fd = fd;
   init->fp = fp;
@@ -109,7 +136,11 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
 
   if (first)
   {
-    f_lookup_file_init(&init, path);
+    if (f_lookup_file_init(&init, path) == -1)
+    {
+      f_log(F_LOG_ERROR, "Couldn't init lookup file");
+      return -1;
+    }
   }
   else
   {
@@ -124,7 +155,11 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
 
   while (current != NULL)
   { 
-    f_lookup_file_append(init, current->bytes->offset);
+    if (f_lookup_file_append(init, current->bytes->offset) == -1)
+    {
+      f_log(F_LOG_ERROR, "error appending to file");
+      return -1;
+    }
     i--;
 
     f_bytes_node* tmp = current;
@@ -138,7 +173,11 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
 
   if (last)
   {
-    f_lookup_file_append(init, 0ul);
+    if (f_lookup_file_append(init, 0ul) == -1)
+    {
+      f_log(F_LOG_ERROR, "Can't append to lookup file");
+      return -1;
+    }
     init->len += len + 1;
   }
   else
@@ -149,6 +188,7 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
   if (fflush(init->fp) != 0)
   {
     perror("didn't flush");
+    return -1;
   }
 
   f_log(F_LOG_INFO, "finished write to file");
@@ -161,8 +201,19 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
 void f_lookup_file_free(f_lookup_file** lookupref)
 {
   f_lookup_file* lookup = *lookupref;
-  fclose(lookup->fp);
-  remove(lookup->path);
+  if (fclose(lookup->fp) != 0)
+  {
+    // not blockiing.
+    f_log(F_LOG_WARN, "Cannot close file descriptor");
+  }
+
+  if (remove(lookup->path) != 0)
+  {
+    // it's okay if the index was already deleted
+    // or changed perms
+    f_log(F_LOG_WARN, "Cannot free lookup path");
+  }
+
   free(lookup->path);
   free(lookup);
   *lookupref = NULL;

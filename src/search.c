@@ -99,6 +99,11 @@ char* tokenize(char** iptr, char* delim)
   }
 
   token = malloc(sizeof(char) * (token_length + 1));
+  if (token == NULL)
+  {
+    f_log(F_LOG_ERROR, "can't allocate token");
+    return NULL;
+  }
   token[token_length] = '\0';
   memcpy(token, str, token_length);
 
@@ -113,6 +118,11 @@ void* f_index_search_thread(void* payload)
   
   pcre2_match_data* match_data;
   match_data = pcre2_match_data_create_from_pattern(config->regex, NULL);
+  if (match_data == NULL)
+  {
+    f_log(F_LOG_ERROR, "cant allocate matchdata block");
+    pthread_exit(NULL);
+  }
 
   PCRE2_SIZE* ovector;  
   int rc;
@@ -210,7 +220,13 @@ void* f_index_search_thread(void* payload)
 
         ovector = pcre2_get_ovector_pointer(match_data);
         f_search_result* res;
-        f_search_result_init(&res, rc);
+        if (f_search_result_init(&res, rc) == -1)
+        {
+          // TODO free allocations.
+          f_log(F_LOG_ERROR, "cant init search result");
+          pthread_exit(NULL);
+        }
+        
         res->line_number = line_number;
         res->str = line;
         res->matches_len = rc;
@@ -219,7 +235,6 @@ void* f_index_search_thread(void* payload)
         {
           res->matches_substring_offset[m] = ovector[2*m];
           res->matches_substring_len[m] = ovector[2*m+1] - ovector[2*m];
-          // printf("%d match on %u -> %zu %zu:\n%s", rc, line_number, ovector[2*m], ovector[2*m+1] - ovector[2*m], lookup);
         }
         
         if (config->on_result != NULL)
@@ -300,7 +315,11 @@ int f_index_search(f_searcher config)
   int total_lines = index->flookup->len;
   double reported_progress = 0.0f;
   
-  pthread_mutex_init(&search_mutex, NULL);
+  if(pthread_mutex_init(&search_mutex, NULL) != 0)
+  {
+    f_log(F_LOG_ERROR, "cant init mutex");
+    return -1;
+  }
 
   /*
     Compile PCRE2 Regex to pass to threads.
@@ -322,10 +341,26 @@ int f_index_search(f_searcher config)
   }
 
   f_searcher_thread** searcher_threads = malloc(sizeof(*searcher_threads) * threads);
+  if (searcher_threads == NULL)
+  {
+    f_log(F_LOG_ERROR, "cant allocate searcher threads");
+    return -1;
+  }
+
   pthread_t* thread_ids = malloc(sizeof(pthread_t) * threads);
+  if (thread_ids == NULL)
+  {
+    f_log(F_LOG_ERROR, "cant allocate thread ids");
+    return -1;
+  }
 
   long int lines_per_thread = (long int) ceil(total_lines / threads);
   int* result_count = malloc(sizeof(*result_count));
+  if (result_count == NULL)
+  {
+    f_log(F_LOG_ERROR, "failed to allocate int for result count");
+    return -1;
+  }
   *result_count = 0;
 
   for (int i=0; i<threads; i++)
@@ -338,6 +373,11 @@ int f_index_search(f_searcher config)
     }
 
     f_searcher_thread* searcher_thread = malloc(sizeof(*searcher_thread));
+    if (searcher_thread == NULL)
+    {
+      f_log(F_LOG_ERROR, "failed to allocate searcher thread");
+      return -1;
+    }
 
     /*
       allocate search results buffer.
@@ -355,7 +395,16 @@ int f_index_search(f_searcher config)
     searcher_thread->result_count = result_count;
     searcher_threads[i] = searcher_thread;
 
-    pthread_create(&thread_ids[i], NULL, f_index_search_thread, searcher_threads[i]);
+    if (pthread_create(&thread_ids[i], NULL, f_index_search_thread, searcher_threads[i]) != 0)
+    {
+      // kill already created threads.
+      for (int ti=0; ti<i; ti++)
+      {
+        pthread_kill(thread_ids[ti], SIGINT);
+      }
+      f_log(F_LOG_ERROR, "Couldn't create thread %d", i);
+      return NULL;
+    }
   }
 
   double report = 0.0;

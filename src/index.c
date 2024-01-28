@@ -26,11 +26,22 @@ int f_index_init(f_index** out, char* filename, int filename_len, f_lookup_file*
     init->flookup = NULL;
   }
   
-  FILE* fp;
-  int fd;
   // get filehandle and total bytes. make nonblocking.
-  fp = fopen(filename, "rb");
-  init->fd = fileno(fp);
+  FILE* fp = fopen(filename, "rb");
+  if (fp == NULL)
+  {
+    f_log(F_LOG_ERROR, "Cannot open index");
+    return -1;
+  }
+
+  int fd = fileno(fp);
+  if (fd == -1)
+  {
+    f_log(F_LOG_ERROR, "Cannot get filedescriptor");
+    return -1;
+  }
+
+  init->fd = fd;
   init->fp = fp;
 
   *out = init;
