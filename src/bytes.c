@@ -89,14 +89,20 @@ int f_node_from_reversed_bytes_node(f_node** out, f_bytes_node** bytes_head)
 
     if (last == 0)
     {
-      f_node_new(out, offset);
+      if (f_node_new(out, offset) == -1)
+      {
+        return -1;
+      };
       last = 1;
     } 
     else
     {
       // create and prepend node
       f_node* new_node;
-      f_node_new(&new_node, offset);
+      if (f_node_new(&new_node, offset) == -1)
+      {
+        return -1;
+      }
 
       f_node* tmp = *out;
       new_node->next = tmp;
@@ -107,7 +113,10 @@ int f_node_from_reversed_bytes_node(f_node** out, f_bytes_node** bytes_head)
   }
   // prepend 0 to the node.
   f_node* first_node;
-  f_node_new(&first_node, 0ul);
+  if (f_node_new(&first_node, 0ul) == -1)
+  {
+    return -1;
+  }
   
   f_node* atmp = *out;
   first_node->next = atmp;

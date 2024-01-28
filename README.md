@@ -88,15 +88,15 @@ void search_progress(double progress)
 
 int search_result_compare(const void* a, const void* b, void* udata)
 {
-  f_search_result** sa = a;
-  f_search_result** sb = b;
-  return (*sa)->line_number > (*sb)->line_number ? 1 : -1;
+  f_search_result* sa = a;
+  f_search_result* sb = b;
+  return sa->line_number > sb->line_number ? 1 : -1;
 }
 
 void append_search_result(f_search_result* res, void* payload)
 {
   struct btree* results = payload;
-  if (btree_set(results, &res) != NULL) exit(1);
+  if (btree_set(results, res) != NULL) exit(1);
 }
 
 int main(void)
@@ -118,7 +118,7 @@ int main(void)
   f_index* index = f_index_text_file(i);
 
   // Search against index
-  struct btree* results = btree_new(sizeof(f_search_result*), 0, search_result_compare, NULL);
+  struct btree* results = btree_new(sizeof(f_search_result), 0, search_result_compare, NULL);
 
   f_searcher searcher = {
     .regex = "^car",
@@ -139,8 +139,7 @@ int main(void)
   f_search_result** res;
   while (res = btree_pop_min(results))
   {
-    printf("[%zu] - %s\n", (*res)->line_number, (*res)->str);
-    f_search_result_free(*res);
+    printf("[%zu] - %s\n", res->line_number, res->str);
   }
 
   btree_free(results);

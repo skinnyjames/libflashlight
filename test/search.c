@@ -1,9 +1,7 @@
 void test_f_search_result(f_search_result* res, void* payload)
 {
-  struct btree* results = (f_search_result*) payload;
-  struct f_search_result** resptr = malloc(sizeof((resptr)));
-  *resptr = res;
-  if (btree_set(results, resptr) != NULL)
+  struct btree* results = payload;
+  if (btree_set(results, res) != NULL)
   {
     printf("Whatt?\n");
   }
@@ -16,9 +14,9 @@ int test_search_progress(double progress)
 
 int test_search_result_compare(const void* a, const void* b, void* udata)
 {
-  f_search_result** sa = (f_search_result**) a;
-  f_search_result** sb = (f_search_result**) b;
-  return (*sa)->line_number > (*sb)->line_number ? 1 : -1;
+  f_search_result* sa = (f_search_result*) a;
+  f_search_result* sb = (f_search_result*) b;
+  return sa->line_number > sb->line_number ? 1 : -1;
 }
 
 f_index* get_index(void)
@@ -42,7 +40,7 @@ f_index* get_index(void)
 TEST test_f_search_invalid_regex(void)
 {
   f_index* index = get_index();
-  struct btree* results = btree_new(sizeof(f_search_result*), 0, test_search_result_compare, NULL);
+  struct btree* results = btree_new(sizeof(f_search_result), 0, test_search_result_compare, NULL);
 
   f_searcher searcher = {
     .regex = "car(s",
@@ -80,7 +78,7 @@ TEST test_f_search(void)
   };
 
   f_index* index = f_index_text_file(config);
-  struct btree* results = btree_new(sizeof(f_search_result*), 0, test_search_result_compare, NULL);
+  struct btree* results = btree_new(sizeof(f_search_result), 0, test_search_result_compare, NULL);
 
   f_searcher searcher = {
     .regex = "cars",
@@ -102,11 +100,10 @@ TEST test_f_search(void)
   size_t count = btree_count(results);
   ASSERT_EQ_FMT(3ul, count, "%zu");
 
-  f_search_result** resptr;
+  f_search_result* res;
   int idx = 0;
-  while (resptr = btree_pop_min(results))
+  while (res = btree_pop_min(results))
   {
-    f_search_result* res = *resptr;
     switch(idx)
     {
       case 0:
@@ -138,7 +135,7 @@ TEST test_f_search(void)
       }
     }
 
-    f_search_result_free(res);
+    // f_search_result_free(res);
     idx++;
   }
   f_index_free(&index);

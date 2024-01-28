@@ -2,6 +2,7 @@
 #define FLASHLIGHT_INDEXERS_TEXT
 #include <pthread.h>
 #include <libdill.h>
+#include <signal.h>
 #include "text_indexer.h"
 
 /*
@@ -29,6 +30,12 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
   size_t total_bytes_offset = ic->from;
 
   uint8_t* buffer = malloc(sizeof(*buffer) * buffer_size);
+  if (buffer == NULL)
+  {
+    f_log(F_LOG_ERROR, "failed to allocate read buffer");
+    chsend(done, NULL, sizeof(f_chunk*), -1);
+    return;
+  }
 
   f_bytes_node* last_chunk_node = NULL;
   f_bytes_node* start_node = NULL;
@@ -39,11 +46,11 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
   unsigned int line_count = 0u;
 
   bytes_read = pread(fd, buffer, buffer_size, total_bytes_offset);
-
   if (bytes_read == -1)
   {
-    perror("failed to pread");
-    exit(1);
+    perror("failed to pread on file");
+    chsend(done, NULL, sizeof(f_chunk*), -1);
+    return;
   }
 
   int pos = 0;
@@ -56,10 +63,18 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
       line_count++;
 
       f_bytes* bytes;
-      f_bytes_new(&bytes, true, total_bytes_offset);
+      if (f_bytes_new(&bytes, true, total_bytes_offset) == -1)
+      {
+        chsend(done, NULL, sizeof(f_chunk*), -1);
+        return;
+      }
 
       f_bytes_node* node;
-      f_bytes_node_new(&node, bytes);
+      if (f_bytes_node_new(&node, bytes) == -1)
+      {
+        chsend(done, NULL, sizeof(f_chunk*), -1);
+        return;
+      }
 
       if (head)
       {
@@ -84,12 +99,17 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
   F_MTRIM(0);
 
   f_chunk* chunk;
-  f_chunk_new(&chunk, ic->index, start_node, last_chunk_node);
+  if (f_chunk_new(&chunk, ic->index, start_node, last_chunk_node) == -1)
+  {
+    chsend(done, NULL, sizeof(chunk), -1);
+    return;
+  }
+
   chunk->line_count = line_count;
 
   if (chsend(done, &chunk, sizeof(chunk), -1) != 0)
   {
-    perror("couldn't send channel message");
+    f_log(F_LOG_WARN, "couldn't send channel message to thread");
   }
 }
 
@@ -100,10 +120,18 @@ void* f_index_text_chunk(void* payload)
   unsigned int line_count = 0u;
 
   f_indexer_chunks* ic;
-  f_indexer_chunks_init(&ic, tthread->concurrency, tthread->buffer_size, tthread->total_bytes_count, tthread->from, tthread->to);
+  if (f_indexer_chunks_init(&ic, tthread->concurrency, tthread->buffer_size, tthread->total_bytes_count, tthread->from, tthread->to) == -1)
+  {
+    f_log(F_LOG_ERROR, "cannot init indexer chunks");
+    pthread_exit(NULL);
+  }
 
   f_chunk** chunk_array;
-  f_chunk_array_new(&chunk_array, ic->len);
+  if (f_chunk_array_new(&chunk_array, ic->len) == -1)
+  {
+    f_log(F_LOG_ERROR, "cannot init chunk array");
+    pthread_exit(NULL);
+  }
 
   int chunks_finished = 0;
   int b = bundle();
@@ -111,7 +139,8 @@ void* f_index_text_chunk(void* payload)
   int rc = chmake(chv);
   if (rc == -1)
   {
-    perror("cannot create channel");
+    f_log(F_LOG_ERROR, "cannot create concurrency channel");
+    pthread_exit(NULL);
   }
 
   int send = chv[0];
@@ -134,8 +163,8 @@ void* f_index_text_chunk(void* payload)
 
       if (bundle_go(b, f_index_text_bytes(tthread->fd, send, chunk, tthread->thread)) == -1)
       {
-        perror("cannot run coroutine");
-        exit(1);
+        f_log(F_LOG_ERROR, "cannot run coroutine for chunk %d", index);
+        pthread_exit(NULL);
       }
     }
 
@@ -151,7 +180,14 @@ void* f_index_text_chunk(void* payload)
       f_chunk* chunk;
       if (chrecv(recv, &chunk, sizeof(chunk), -1) != 0)
       {
-        perror("cannot receive chunk");
+        f_log(F_LOG_ERROR, "cannot receive chunk");
+        pthread_exit(NULL);
+      }
+
+      if (chunk == NULL)
+      {
+        f_log(F_LOG_ERROR, "chunk is NULL");
+        pthread_exit(NULL);
       }
 
       line_count += chunk->line_count;
@@ -179,7 +215,12 @@ void* f_index_text_chunk(void* payload)
   }
 
   f_chunk* ret;
-  f_chunk_array_reverse_reduce(&ret, tthread->thread, chunk_array, ic->len);
+  if (f_chunk_array_reverse_reduce(&ret, tthread->thread, chunk_array, ic->len) == -1)
+  {
+    f_log(F_LOG_ERROR, "couldn't reduce chunk array");
+    pthread_exit(NULL);
+  }
+
   ret->line_count = line_count;
 
   f_chunk_array_free(chunk_array, ic->len);
@@ -192,20 +233,51 @@ void* f_index_text_chunk(void* payload)
 */
 f_index* f_index_text_file(f_indexer indexer)
 {
-  FILE* fp;
-  int fd;
-  int flags;
-  unsigned long int total_bytes_count;
   f_chunk* result_chunk;
 
   // get filehandle and total bytes. make nonblocking.
-  fp = fopen(indexer.filename, "rb");
-  fd = fileno(fp);
-  flags = fcntl(fd, F_GETFL, 0);
-  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-  fseek(fp, 0, SEEK_END);
-  total_bytes_count = ftell(fp);
-  fseek(fp, 0, SEEK_SET);
+  FILE* fp = fopen(indexer.filename, "rb");
+  if (fp == NULL)
+  {
+    f_log(F_LOG_ERROR, "Cannot open file for reading");
+    return NULL;
+  }
+
+  int fd = fileno(fp);
+  if (fd == -1)
+  {
+    return NULL;
+  }
+
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags == -1)
+  {
+    return NULL;
+
+  }
+  
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+  {
+    f_log(F_LOG_ERROR, "Cannot set file flags");
+    return NULL;
+  }
+
+  if (fseek(fp, 0, SEEK_END) == -1)
+  {
+    return NULL;
+  }
+  
+  long int total_bytes_count = ftell(fp);
+  if (total_bytes_count < 0)
+  {
+    f_log(F_LOG_ERROR, "Got a negative bytesize for file");
+    return NULL;
+  }
+
+  if (fseek(fp, 0, SEEK_SET) == -1)
+  {
+    return NULL;
+  }
 
   double reported_progress = 0.0;
   size_t max_bytes_per_iteration = indexer.max_bytes_per_iteration;
@@ -240,14 +312,34 @@ f_index* f_index_text_file(f_indexer indexer)
     */
 
     f_indexer_threads* it;
-    f_indexer_threads_init(&it, indexer.threads, local_max_bytes_per_iteration, indexer.buffer_size, thread_it_start);
+    if (f_indexer_threads_init(&it, indexer.threads, local_max_bytes_per_iteration, indexer.buffer_size, thread_it_start) == -1)
+    {
+      // TODO: free allocations
+      f_log(F_LOG_ERROR, "Could not allocate indexer");
+      return NULL;
+    }
 
     // setup pthreads and thread chunks array.
     f_chunk** chunks;
-    f_chunk_array_new(&chunks, it->len);
+    if (f_chunk_array_new(&chunks, it->len) == -1)
+    {
+      // TODO: free allocations
+      f_log(F_LOG_ERROR, "Could not allocate chunks");
+      return NULL;
+    }
 
     f_text_thread** tthreads = malloc(sizeof(*tthreads) * it->len);
+    if (tthreads == NULL)
+    {
+      // TODO: free allocations
+      return NULL;
+    }
     pthread_t* thread_ids = malloc(sizeof(pthread_t) * it->len);
+    if (thread_ids == NULL)
+    {
+      // TODO: free allocations
+      return NULL;
+    }
 
     unsigned int line_count = 0u;
 
@@ -256,6 +348,11 @@ f_index* f_index_text_file(f_indexer indexer)
     {
       // add extra container.
       f_text_thread* tthread = malloc(sizeof(*tthread));
+      if (tthread == NULL)
+      {
+        // TODO: free allocations
+        return NULL;
+      }
       tthread->fd = fd;
       tthread->from = it->threads[i].from;
       tthread->to = it->threads[i].to;
@@ -266,7 +363,16 @@ f_index* f_index_text_file(f_indexer indexer)
       tthread->progress = (double) 0.0;
 
       tthreads[i] = tthread;
-      pthread_create(&thread_ids[i], NULL, f_index_text_chunk, tthreads[i]);
+      if (pthread_create(&thread_ids[i], NULL, f_index_text_chunk, tthreads[i]) != 0)
+      {
+        // kill already created threads.
+        for (int ti=0; ti<i; ti++)
+        {
+          pthread_kill(thread_ids[ti], SIGINT);
+        }
+        f_log(F_LOG_ERROR, "Couldn't create thread %d", i);
+        return NULL;
+      }
     }
 
     double report = 0.0;
@@ -298,11 +404,21 @@ f_index* f_index_text_file(f_indexer indexer)
       // join next thread.
       if (pthread_join(thread_ids[i], (void**) &result_chunk) != 0)
       {
-        perror("can't join pthread");
-        exit(1);
+        perror("can't join thread - results may be incomplete.");
       }
 
       f_chunk* result = (f_chunk*) result_chunk;
+      if (result == NULL)
+      {
+        f_log(F_LOG_ERROR, "result chunk %d is NULL", i);
+        // kill the rest of the threads
+        for (int ti=i; ti<it->len; ti++)
+        {
+          pthread_kill(thread_ids[ti], SIGINT);
+        }
+        return NULL;
+      }
+
       line_count += result->line_count;
 
       chunks[result->current] = result;
@@ -311,7 +427,12 @@ f_index* f_index_text_file(f_indexer indexer)
     reported_progress += report;
 
     f_chunk* final_chunk;
-    f_chunk_array_reverse_reduce(&final_chunk, 0, chunks, it->len);
+    if (f_chunk_array_reverse_reduce(&final_chunk, 0, chunks, it->len) == -1)
+    {
+      // todo free allocations
+      f_log(F_LOG_ERROR, "failed to reduce chunk");
+      return NULL;
+    }
 
     final_chunk->line_count = line_count;
 
@@ -324,7 +445,11 @@ f_index* f_index_text_file(f_indexer indexer)
     bool init_lookup = lookup == NULL ? true : false;
     bool last_lookup = itc == 0;
 
-    f_lookup_file_from_chunk(&lookup, final_chunk, index_filename, init_lookup, last_lookup);
+    if (f_lookup_file_from_chunk(&lookup, final_chunk, index_filename, init_lookup, last_lookup) == -1)
+    {
+      f_log(F_LOG_ERROR, "failed to create index");
+      return NULL;
+    }
 
     /* free allocations */
     f_chunk_array_free(chunks, it->len);
@@ -339,9 +464,17 @@ f_index* f_index_text_file(f_indexer indexer)
     free(thread_ids);
   }
 
-  fclose(fp);
+  if (fclose(fp) != 0)
+  {
+    f_log(F_LOG_WARN, "cannot close file descriptor");
+  }
+
   f_index* index;
-  f_index_init(&index, indexer.filename, indexer.filename_len, lookup, NULL);
+  if (f_index_init(&index, indexer.filename, indexer.filename_len, lookup, NULL) == -1)
+  {
+    f_log(F_LOG_ERROR, "failed to initialize index");
+    return NULL;
+  }
 
   return index;
 }

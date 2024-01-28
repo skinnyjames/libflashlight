@@ -248,6 +248,24 @@ TEST test_index_sequential(void)
   PASS();
 }
 
+TEST test_indexer_file_not_exists()
+{
+    char* test = "test/zfixtures/notexist.txt";
+  f_indexer i = {
+    .filename = test,
+    .lookup_dir = ".flashlight",
+    .threads = 2,
+    .concurrency = 5,
+    .buffer_size = 10,
+    .max_bytes_per_iteration = 100,
+    .on_progress = NULL
+  };
+
+  f_index* index = f_index_text_file(i);
+  ASSERT_EQ_FMT(NULL, index, "%p");
+  PASS();
+}
+
 SUITE(f_indexer_suite)
 {
   RUN_TEST(test_indexer_threads);
@@ -261,4 +279,5 @@ SUITE(f_indexer_suite)
 
   RUN_TEST(test_text_indexer);
   RUN_TEST(test_index_sequential);
+  RUN_TEST(test_indexer_file_not_exists);
 }
