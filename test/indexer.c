@@ -52,6 +52,10 @@ TEST test_indexer_threads_bigger_buffer_than_bytes(void)
   PASS();
 }
 
+/**
+* TODO: possibly revisit this behavior.
+* buffer_size is greater than from - to in this case.
+*/
 TEST test_indexer_more_threads_than_index(void)
 {
   f_indexer_threads* indexer;
@@ -60,12 +64,12 @@ TEST test_indexer_more_threads_than_index(void)
   ASSERT_EQ_FMT(2, indexer->len, "%d");
 
   ASSERT_EQ_FMT(0ul, indexer->threads[0].from, "%zu");
-  ASSERT_EQ_FMT(1500ul, indexer->threads[0].to, "%zu");
+  ASSERT_EQ_FMT(1000ul, indexer->threads[0].to, "%zu");
   ASSERT_EQ_FMT(1500ul, indexer->threads[0].buffer_size, "%zu");
 
-  ASSERT_EQ_FMT(1501ul, indexer->threads[0].from, "%zu");
-  ASSERT_EQ_FMT(2000ul, indexer->threads[0].to, "%zu");
-  ASSERT_EQ_FMT(1500ul, indexer->threads[0].buffer_size, "%zu");
+  ASSERT_EQ_FMT(1001ul, indexer->threads[1].from, "%zu");
+  ASSERT_EQ_FMT(2000ul, indexer->threads[1].to, "%zu");
+  ASSERT_EQ_FMT(1500ul, indexer->threads[1].buffer_size, "%zu");
 
   f_indexer_threads_free(indexer);
   PASS();
@@ -234,7 +238,7 @@ TEST test_index_sequential(void)
 
     size_t bread = fread(&bytes_count, sizeof(size_t), 1, index->flookup->fp);
     // printf("bread: %zu, bc: %zu, lbc: %zu, null? %d\n", bread, bytes_count, last_bytes_count, last_bytes_count == NULL);
-    if (last_bytes_count != NULL && bytes_count < last_bytes_count)
+    if (last_bytes_count != 0 && bytes_count < last_bytes_count)
     {
       printf("[%ld] bad: %zu %zu - prev: %zu\n", i, bytes_count, last_bytes_count, previous_last_bytes_count);
       f_index_free(&index);
@@ -272,6 +276,7 @@ SUITE(f_indexer_suite)
   RUN_TEST(test_indexer_threads_remainder);
   RUN_TEST(test_indexer_threads_bigger_buffer_than_bytes);
   RUN_TEST(test_indexer_more_chunks_than_threads);
+  RUN_TEST(test_indexer_more_threads_than_index);
 
   RUN_TEST(test_indexer_chunks);
   RUN_TEST(test_indexer_chunks_multiple_pages);

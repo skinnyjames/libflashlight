@@ -2,7 +2,7 @@
 #define FLASHLIGHT_LIB_H
 
 #define PCRE2_CODE_UNIT_WIDTH 8
-#ifdef __linux__ || __gnu_linux__ || linux || __linux || __unix__
+#if defined(__linux___) || defined(__gnu_linux__) || defined(linux) || defined(__linux) || defined(__unix__)
 #define F_MTRIM(a) malloc_trim(a)
 #else
 #define F_MTRIM(a) do {} while(0)

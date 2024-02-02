@@ -1,9 +1,9 @@
 
-void test_f_log_level_cb(f_log_message msg, void* payload)
+void test_f_log_level_cb(f_log_message msg,  volatile void* payload)
 {
   bool* ok = (bool*) payload;
 
-  if ((msg.level & F_LOG_FINE | F_LOG_WARN) && (strcmp(msg.message, "odoyle rules!") == 0) && msg.datetime != NULL)
+  if ((msg.level & (F_LOG_FINE | F_LOG_WARN)) && (strcmp(msg.message, "odoyle rules!") == 0) && msg.datetime != NULL)
   {
     *ok = true;
   }
@@ -32,6 +32,7 @@ TEST test_f_log_level()
   f_log(F_LOG_INFO, "more discarded");
   if (*ok) FAIL();
 
+  free(ok);
   PASS();
 }
 

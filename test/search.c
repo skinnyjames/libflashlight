@@ -7,7 +7,7 @@ void test_f_search_result(f_search_result* res, void* payload)
   }
 }
 
-int test_search_progress(double progress)
+void test_search_progress(double progress, void* payload)
 {
   // printf("progress: %lf\n", progress);
 }
@@ -100,10 +100,15 @@ TEST test_f_search(void)
   size_t count = btree_count(results);
   ASSERT_EQ_FMT(3ul, count, "%zu");
 
-  f_search_result* res;
   int idx = 0;
-  while (res = btree_pop_min(results))
+  while (true)
   {
+    const f_search_result* res = btree_pop_min(results);
+    if (res == NULL)
+    {
+      break;
+    }
+
     switch(idx)
     {
       case 0:
