@@ -149,7 +149,6 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
 
   f_bytes_node* current = chunk->first;
   unsigned int len = chunk->line_count;
-  unsigned int i = len;
 
   f_log(F_LOG_INFO, "starting write to file");
 
@@ -160,7 +159,6 @@ int f_lookup_file_from_chunk(f_lookup_file** out, f_chunk* chunk, char* path, bo
       f_log(F_LOG_ERROR, "error appending to file");
       return -1;
     }
-    i--;
 
     f_bytes_node* tmp = current;
     current = current->next;

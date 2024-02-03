@@ -16,6 +16,7 @@ target("test")
   set_kind("binary")
   add_files("test/flashlight.c")
   add_packages("libdill", "pthread", "pcre2")
+  add_cflags("-Wall -Werror")
   after_build(function (target)
     os.exec("./%s", target:targetfile())
   end)
@@ -30,7 +31,6 @@ target("leaks")
     os.exec("valgrind --show-leak-kinds=all --track-origins=yes --leak-check=full %s", target:targetfile())
   end)
 target_end()
-
 
 add_requires("pthread", "pcre2", "libdill")
 

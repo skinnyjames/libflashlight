@@ -91,7 +91,7 @@ TEST test_f_chunk_reverse_reduce(void)
       case 2 :
         ASSERT_EQ_FMT(1ul, node->bytes->offset, "%zu");
         ASSERT_EQ_FMT(true, node->bytes->atomic, "%d");
-        ASSERT_EQ_FMT(new_chunk->last, node, "%p");
+        ASSERT_EQ_FMT(last, node, "%p");
         break;
     }
   }

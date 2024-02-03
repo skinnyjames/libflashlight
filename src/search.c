@@ -164,11 +164,9 @@ void* f_index_search_thread(void* payload)
     size_t line_number = i;
     char* line;
     char* lookupcpy = lookup;
-    double p = 0.0f;
 
     while ((line = tokenize(&lookupcpy, "\n")))
     {
-      p++;
       line_number++;
 
       if (strlen(line) == 0)
@@ -183,8 +181,8 @@ void* f_index_search_thread(void* payload)
       */
       rc = pcre2_match(
         config->regex,        /* the compiled pattern */
-        line,               /* the subject string */
-        strlen(line),           /* the length of the subject */
+        (PCRE2_SPTR8) line,                 /* the subject string */
+        strlen(line),         /* the length of the subject */
         0,                    /* start at offset 0 in the subject */
         0,                    /* default options */
         match_data,           /* block for storing the result */
@@ -279,8 +277,8 @@ void* f_index_search_thread(void* payload)
 
 int f_search_result_compare(const void* a, const void* b, void* udata)
 {
-  f_search_result* sa = a;
-  f_search_result* sb = b;
+  const f_search_result* sa = a;
+  const f_search_result* sb = b;
   return sa->line_number > sb->line_number;
 }
 
@@ -313,7 +311,6 @@ int f_index_search(f_searcher config)
   f_index* index = config.index;
   int threads = config.threads;
   int total_lines = index->flookup->len;
-  double reported_progress = 0.0f;
   
   if(pthread_mutex_init(&search_mutex, NULL) != 0)
   {
@@ -403,11 +400,10 @@ int f_index_search(f_searcher config)
         pthread_kill(thread_ids[ti], SIGINT);
       }
       f_log(F_LOG_ERROR, "Couldn't create thread %d", i);
-      return NULL;
+      return -1;
     }
   }
 
-  double report = 0.0;
   // join threads.
   for (int i=0; i<threads; i++)
   {

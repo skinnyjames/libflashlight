@@ -26,7 +26,7 @@ static void rand_string(char* str, size_t size)
 
 coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thread)
 {
-  size_t buffer_size = ic->count;
+  const size_t buffer_size = ic->count;
   size_t total_bytes_offset = ic->from;
 
   uint8_t* buffer = malloc(sizeof(*buffer) * buffer_size);
@@ -40,12 +40,11 @@ coroutine void f_index_text_bytes(int fd, int done, f_indexer_chunk* ic, int thr
   f_bytes_node* last_chunk_node = NULL;
   f_bytes_node* start_node = NULL;
 
-  ssize_t bytes_read;
-  size_t bytes_offset = 0ul;
+  // ssize_t bytes_read;
   bool head = true;
   unsigned int line_count = 0u;
 
-  bytes_read = pread(fd, buffer, buffer_size, total_bytes_offset);
+  const ssize_t bytes_read = pread(fd, buffer, buffer_size, total_bytes_offset);
   if (bytes_read == -1)
   {
     perror("failed to pread on file");
