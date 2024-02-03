@@ -1,7 +1,8 @@
 TEST test_f_bytes_new(void)
 {
   f_bytes* bytes;
-  f_bytes_new(&bytes, true, 3ul);
+  if (f_bytes_new(&bytes, true, 3ul) == -1)
+    FAIL();
   
   ASSERT_EQ_FMT(3ul, bytes->offset, "%zu");
   ASSERT_EQ_FMT(true, bytes->atomic, "%d");
@@ -32,10 +33,12 @@ TEST test_f_bytes_new_with_null(void)
 TEST test_f_bytes_node_default(void)
 {
   f_bytes* bytes;
-  f_bytes_new(&bytes, true, 1ul);
+  if (f_bytes_new(&bytes, true, 1ul) == -1)
+    FAIL();
 
   f_bytes_node* node;
-  f_bytes_node_new(&node, bytes);
+  if (f_bytes_node_new(&node, bytes) == -1)
+    FAIL();
 
   ASSERT_EQ_FMT(NULL, node->next, "%p");
 
@@ -47,16 +50,20 @@ TEST test_f_bytes_node_default(void)
 TEST test_f_bytes_node_multiple(void)
 {
   f_bytes* bytes;
-  f_bytes_new(&bytes, true, 1ul);
+  if (f_bytes_new(&bytes, true, 1ul) == -1)
+    FAIL();
 
   f_bytes* next_bytes;
-  f_bytes_new(&next_bytes, false, 2ul);
+  if (f_bytes_new(&next_bytes, false, 2ul) == -1)
+    FAIL();
 
   f_bytes_node* node;
-  f_bytes_node_new(&node, bytes);
+  if (f_bytes_node_new(&node, bytes) == -1)
+    FAIL();
 
   f_bytes_node* next;
-  f_bytes_node_new(&next, next_bytes);
+  if (f_bytes_node_new(&next, next_bytes) == -1)
+    FAIL();
 
   node->next = next;
 

@@ -9,7 +9,7 @@ void test_f_search_result(f_search_result* res, void* payload)
 
 void test_search_progress(double progress, void* payload)
 {
-  // printf("progress: %lf\n", progress);
+  printf("progress: %lf\n", progress);
 }
 
 int test_search_result_compare(const void* a, const void* b, void* udata)

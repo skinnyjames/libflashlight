@@ -101,7 +101,7 @@ TEST test_indexer_more_chunks_than_threads(void)
 TEST test_indexer_chunks(void)
 {
   f_indexer_chunks* ic;
-  f_indexer_chunks_init(&ic, 2, 100, 200, 0, 200);
+  if (f_indexer_chunks_init(&ic, 2, 100, 200, 0, 200) == -1) FAIL();
 
   ASSERT_EQ_FMT(2, ic->len, "%d");
   ASSERT_EQ_FMT(2, ic->concurrency, "%d");
@@ -121,7 +121,7 @@ TEST test_indexer_chunks(void)
 TEST test_indexer_chunks_multiple_pages(void)
 {
   f_indexer_chunks* ic;
-  f_indexer_chunks_init(&ic, 3, 500, 2000, 0, 2000);
+  if (f_indexer_chunks_init(&ic, 3, 500, 2000, 0, 2000) == -1) FAIL();
 
   ASSERT_EQ_FMT(4, ic->len, "%d");
   ASSERT_EQ_FMT(3, ic->concurrency, "%d");
@@ -149,7 +149,7 @@ TEST test_indexer_chunks_multiple_pages(void)
 TEST testy(void)
 {
   f_indexer_chunks* ic;
-  f_indexer_chunks_init(&ic, 3, 100, 2000, 0, 1999);
+  if (f_indexer_chunks_init(&ic, 3, 100, 2000, 0, 1999) == -1) FAIL();
 
   size_t expect[20] = {
     0ul, 100ul, 200ul, 300ul, 400ul,
