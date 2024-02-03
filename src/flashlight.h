@@ -500,7 +500,8 @@ CWK_PUBLIC enum cwk_path_style cwk_path_get_style(void);
 #define FLASHLIGHT_LIB_H
 
 #define PCRE2_CODE_UNIT_WIDTH 8
-#ifdef __linux__ || __gnu_linux__ || linux || __linux || __unix__
+#if defined(__linux___) || defined(__gnu_linux__) || defined(linux) || defined(__linux) || defined(__unix__)
+#include <malloc.h>
 #define F_MTRIM(a) malloc_trim(a)
 #else
 #define F_MTRIM(a) do {} while(0)
@@ -544,16 +545,16 @@ typedef struct FLogMessage
   char* message;
 } f_log_message;
 
-typedef void (*f_logger_cb)(f_log_message message, void* payload);
+typedef void (*f_logger_cb)(f_log_message message, volatile void* payload);
 static volatile f_logger_cb f_log_cb = NULL;
 static volatile enum F_LOG_LEVEL f_log_level = F_LOG_ERROR;
 static volatile void* f_log_payload = NULL;
 
 void f_logger_set_level(enum F_LOG_LEVEL level);
-void f_logger_set_cb(f_logger_cb cb, void* payload);
+void f_logger_set_cb(f_logger_cb cb, volatile void* payload);
 f_logger_cb f_logger_get_cb();
 enum F_LOG_LEVEL f_logger_get_level();
-void* f_logger_get_payload();
+volatile void* f_logger_get_payload();
 void f_log(enum F_LOG_LEVEL level, char* fmt, ...);
 
 #endif
