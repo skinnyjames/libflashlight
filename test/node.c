@@ -1,7 +1,10 @@
 TEST test_f_node_new(void)
 {
   f_node* node;
-  f_node_new(&node, 35ul);
+  if (f_node_new(&node, 35ul) == -1)
+  {
+    FAIL();
+  }
 
   ASSERT_EQ_FMT(35ul, node->offset, "%zu");
   
@@ -49,20 +52,28 @@ TEST test_f_node_from_reversed_bytes_node(void)
   f_bytes* third_bytes;
   f_bytes* fourth_bytes;
 
-  f_bytes_new(&first_bytes, true, 1ul);
-  f_bytes_new(&second_bytes, false, 2ul);
-  f_bytes_new(&third_bytes, true, 6ul);
-  f_bytes_new(&fourth_bytes, false, 8ul);
+  if (f_bytes_new(&first_bytes, true, 1ul) == -1)
+    FAIL();
+  if (f_bytes_new(&second_bytes, false, 2ul) == -1)
+    FAIL();
+  if (f_bytes_new(&third_bytes, true, 6ul) == -1)
+    FAIL();
+  if (f_bytes_new(&fourth_bytes, false, 8ul) == -1)
+    FAIL();
 
   f_bytes_node* first_node;
   f_bytes_node* second_node;
   f_bytes_node* third_node;
   f_bytes_node* fourth_node;
 
-  f_bytes_node_new(&first_node, first_bytes);
-  f_bytes_node_new(&second_node, second_bytes);
-  f_bytes_node_new(&third_node, third_bytes);
-  f_bytes_node_new(&fourth_node, fourth_bytes);
+  if (f_bytes_node_new(&first_node, first_bytes) == -1)
+    FAIL();
+  if (f_bytes_node_new(&second_node, second_bytes) == -1)
+    FAIL();
+  if (f_bytes_node_new(&third_node, third_bytes) == -1)
+    FAIL();
+  if (f_bytes_node_new(&fourth_node, fourth_bytes) == -1)
+    FAIL();
 
   second_node->next = first_node;
   third_node->next = second_node;

@@ -3,6 +3,7 @@
 
 #define PCRE2_CODE_UNIT_WIDTH 8
 #if defined(__linux___) || defined(__gnu_linux__) || defined(linux) || defined(__linux) || defined(__unix__)
+#include <malloc.h>
 #define F_MTRIM(a) malloc_trim(a)
 #else
 #define F_MTRIM(a) do {} while(0)

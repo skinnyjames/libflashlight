@@ -2,18 +2,18 @@ TEST test_f_chunk_new(void)
 {
   f_bytes* first_bytes;
   f_bytes* second_bytes;
-  f_bytes_new(&first_bytes, true, 1ul);
-  f_bytes_new(&second_bytes, true, 5ul);
+  if (f_bytes_new(&first_bytes, true, 1ul) == -1) FAIL();
+  if (f_bytes_new(&second_bytes, true, 5ul) == -1) FAIL();
 
   f_bytes_node* first_node;
   f_bytes_node* second_node;
-  f_bytes_node_new(&first_node, first_bytes);
-  f_bytes_node_new(&second_node, second_bytes);
+  if (f_bytes_node_new(&first_node, first_bytes) == -1) FAIL();
+  if (f_bytes_node_new(&second_node, second_bytes) == -1) FAIL();
 
   first_node->next = second_node;
 
   f_chunk* chunk;
-  f_chunk_new(&chunk, 1, first_node, second_node);
+  if (f_chunk_new(&chunk, 1, first_node, second_node) == -1) FAIL();
 
   ASSERT_EQ_FMT(chunk->current, 1ul, "%lu");
   ASSERT_EQ_FMT(chunk->last, chunk->first->next, "%p");
@@ -31,17 +31,17 @@ TEST test_f_chunk_reverse_reduce(void)
   f_bytes* first_bytes;
   f_bytes* second_bytes;
   f_bytes* third_bytes;
-  f_bytes_new(&first_bytes, true, 1ul);
-  f_bytes_new(&second_bytes, true, 5ul);
-  f_bytes_new(&third_bytes, false, 6ul);
+  if (f_bytes_new(&first_bytes, true, 1ul) == -1) FAIL();
+  if (f_bytes_new(&second_bytes, true, 5ul) == -1) FAIL(); 
+  if (f_bytes_new(&third_bytes, false, 6ul) == -1) FAIL();
 
 
   f_bytes_node* first_node;
   f_bytes_node* second_node;
   f_bytes_node* third_node;
-  f_bytes_node_new(&first_node, first_bytes);
-  f_bytes_node_new(&second_node, second_bytes);
-  f_bytes_node_new(&third_node, third_bytes);
+  if (f_bytes_node_new(&first_node, first_bytes) == -1) FAIL();
+  if (f_bytes_node_new(&second_node, second_bytes) == -1) FAIL();
+  if (f_bytes_node_new(&third_node, third_bytes) == -1) FAIL();
 
   first_node->next = NULL;
   second_node->next = NULL;
@@ -50,8 +50,8 @@ TEST test_f_chunk_reverse_reduce(void)
   f_chunk* first_chunk;
   f_chunk* second_chunk;
 
-  f_chunk_new(&first_chunk, 1, first_node, first_node);
-  f_chunk_new(&second_chunk, 2, third_node, second_node);
+  if (f_chunk_new(&first_chunk, 1, first_node, first_node) == -1) FAIL();
+  if (f_chunk_new(&second_chunk, 2, third_node, second_node) == -1) FAIL();
 
   /*
     [
@@ -61,13 +61,13 @@ TEST test_f_chunk_reverse_reduce(void)
   */
   int size = 2;
   f_chunk** list;
-  f_chunk_array_new(&list, size);
+  if (f_chunk_array_new(&list, size) == -1) FAIL();
 
   list[1] = second_chunk;
   list[0] = first_chunk;
 
   f_chunk* new_chunk;
-  f_chunk_array_reverse_reduce(&new_chunk, 0, list, 2);
+  if (f_chunk_array_reverse_reduce(&new_chunk, 0, list, 2) == -1) FAIL();
 
   f_bytes_node* node = new_chunk->first;
   f_bytes_node* last = new_chunk->last;
